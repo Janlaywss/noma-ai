@@ -19,7 +19,9 @@
     "test:watch": "vitest",
     "test:live": "tsx scripts/live-smoke.ts"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@larksuiteoapi/node-sdk": "^1.62.1"
+  },
   "devDependencies": {
     "@types/node": "^20",
     "tsx": "^4.19.2",

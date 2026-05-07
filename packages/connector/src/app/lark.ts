@@ -1,136 +1,159 @@
 import type { Connector, ConnectorContext, ConnectorDescriptor } from "../types.js";
 
-/**
- * Lark / 飞书 — polls a bot's chat list and emits `on_chat_update` for any
- * chat whose `last_message_time` advanced past the cursor. Coarse but
- * stable signal; per-message subscriptions would need event mode (out of
- * scope here).
- */
-
 interface LarkConfig extends Record<string, unknown> {
   appId: string;
   appSecret: string;
-  pollIntervalSec: number;
 }
 
-interface LarkChat {
-  chat_id: string;
-  name?: string;
-  description?: string;
-  last_message_time?: string;
+type LarkSDK = typeof import("@larksuiteoapi/node-sdk");
+type LarkClient = InstanceType<LarkSDK["Client"]>;
+
+const CACHE_TTL = 30 * 60_000;
+
+class NameCache {
+  private entries = new Map<string, { value: string; expiry: number }>();
+
+  get(key: string): string | undefined {
+    const e = this.entries.get(key);
+    if (!e) return undefined;
+    if (Date.now() > e.expiry) {
+      this.entries.delete(key);
+      return undefined;
+    }
+    return e.value;
+  }
+
+  set(key: string, value: string) {
+    this.entries.set(key, { value, expiry: Date.now() + CACHE_TTL });
+  }
+
+  clear() {
+    this.entries.clear();
+  }
+}
+
+async function resolveChatName(
+  client: LarkClient,
+  chatId: string,
+  cache: NameCache,
+): Promise<string> {
+  const cached = cache.get(chatId);
+  if (cached !== undefined) return cached;
+  try {
+    const res = await client.im.v1.chat.get({ path: { chat_id: chatId } });
+    const name = res.data?.name ?? "";
+    if (name) cache.set(chatId, name);
+    return name;
+  } catch {
+    return "";
+  }
+}
+
+async function resolveSenderName(
+  client: LarkClient,
+  openId: string,
+  cache: NameCache,
+): Promise<string> {
+  const cached = cache.get(openId);
+  if (cached !== undefined) return cached;
+  try {
+    const res = await client.contact.v3.user.get({
+      path: { user_id: openId },
+      params: { user_id_type: "open_id" },
+    });
+    const name = res.data?.user?.name ?? "";
+    if (name) cache.set(openId, name);
+    return name;
+  } catch {
+    return "";
+  }
 }
 
 function createLarkConnector(cfg: LarkConfig, ctx: ConnectorContext): Connector {
-  let pollIntervalSec = Math.max(60, Number(cfg.pollIntervalSec) || 120);
   const appId = String(cfg.appId ?? "");
   const appSecret = String(cfg.appSecret ?? "");
-  let timer: NodeJS.Timeout | null = null;
-  let running = false;
-  let token = "";
-  let tokenExp = 0;
-  let lastSeen = 0;
-  let lastPollAt: number | null = null;
-
-  const refreshToken = async (): Promise<boolean> => {
-    if (token && Date.now() < tokenExp - 60_000) return true;
-    const res = await fetch(
-      "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
-      }
-    );
-    if (!res.ok) {
-      ctx.log("warn", `  lark: token HTTP ${res.status}`);
-      return false;
-    }
-    const body = (await res.json()) as {
-      tenant_access_token?: string;
-      expire?: number;
-    };
-    if (!body.tenant_access_token) {
-      ctx.log("warn", "  lark: missing tenant_access_token");
-      return false;
-    }
-    token = body.tenant_access_token;
-    tokenExp = Date.now() + (body.expire ?? 7000) * 1000;
-    return true;
-  };
-
-  const poll = async () => {
-    if (running) return;
-    running = true;
-    try {
-      if (!appId || !appSecret) {
-        ctx.log("info", "  lark: missing appId/appSecret — skip");
-        return;
-      }
-      if (!(await refreshToken())) return;
-      const res = await fetch(
-        "https://open.larksuite.com/open-apis/im/v1/chats?page_size=50",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      lastPollAt = Date.now();
-      if (!res.ok) {
-        ctx.log("warn", `  lark: chats HTTP ${res.status}`);
-        return;
-      }
-      const chats =
-        ((await res.json()) as { data?: { items?: LarkChat[] } }).data?.items ??
-        [];
-      let nextLastSeen = lastSeen;
-      for (const c of chats) {
-        const ts = Number(c.last_message_time ?? 0) * 1000;
-        if (!ts || ts <= lastSeen) continue;
-        ctx.emitEvent({
-          type: "on_chat_update",
-          payload: {
-            title: `${c.name ?? c.chat_id} · 新活动`,
-            sub: c.description ?? "",
-            chat_id: c.chat_id,
-            last_message_time: c.last_message_time,
-          },
-        });
-        if (ts > nextLastSeen) nextLastSeen = ts;
-      }
-      lastSeen = nextLastSeen;
-    } catch (err) {
-      ctx.log(
-        "warn",
-        `  lark: poll failed — ${err instanceof Error ? err.message : String(err)}`
-      );
-    } finally {
-      running = false;
-    }
-  };
+  let wsClient: InstanceType<LarkSDK["WSClient"]> | null = null;
+  const chatNames = new NameCache();
+  const userNames = new NameCache();
 
   return {
     async start() {
-      ctx.log("info", `lark: started (every ${pollIntervalSec}s)`);
-      await poll();
-      timer = setInterval(() => void poll(), pollIntervalSec * 1000);
-    },
-    stop() {
-      if (timer) {
-        clearInterval(timer);
-        timer = null;
+      if (!appId || !appSecret) {
+        ctx.log("info", "lark: missing appId/appSecret — skip");
+        return;
       }
+
+      const lark = await import("@larksuiteoapi/node-sdk");
+
+      const client = new lark.Client({ appId, appSecret });
+
+      const eventDispatcher = new lark.EventDispatcher({}).register({
+        "im.message.receive_v1": async (data) => {
+          const msg = data.message;
+          const senderId = data.sender.sender_id?.open_id;
+
+          let text = "";
+          if (msg.message_type === "text") {
+            try {
+              text = (JSON.parse(msg.content) as { text?: string }).text ?? "";
+            } catch {}
+          }
+          const body = text || `[${msg.message_type}]`;
+
+          const [chatName, senderName] = await Promise.all([
+            msg.chat_type === "group"
+              ? resolveChatName(client, msg.chat_id, chatNames)
+              : Promise.resolve(""),
+            senderId
+              ? resolveSenderName(client, senderId, userNames)
+              : Promise.resolve(""),
+          ]);
+
+          ctx.emitEvent({
+            type: "on_message",
+            payload: {
+              title: chatName || "飞书 · 新消息",
+              sub: senderName ? `${senderName}: ${body}` : body,
+              message_id: msg.message_id,
+              chat_id: msg.chat_id,
+              chat_type: msg.chat_type,
+              chat_name: chatName,
+              message_type: msg.message_type,
+              content: msg.content,
+              sender_id: senderId,
+              sender_name: senderName,
+            },
+          });
+        },
+      });
+
+      wsClient = new lark.WSClient({
+        appId,
+        appSecret,
+        loggerLevel: lark.LoggerLevel.info,
+        autoReconnect: true,
+        onReady: () => ctx.log("info", "lark: ws connected"),
+        onError: (err) => ctx.log("warn", `lark: ws error — ${err.message}`),
+        onReconnecting: () => ctx.log("info", "lark: ws reconnecting"),
+        onReconnected: () => ctx.log("info", "lark: ws reconnected"),
+      });
+
+      await wsClient.start({ eventDispatcher });
+      ctx.log("info", "lark: started (WebSocket)");
+    },
+
+    stop() {
+      if (wsClient) {
+        wsClient.close();
+        wsClient = null;
+      }
+      chatNames.clear();
+      userNames.clear();
       ctx.log("info", "lark: stopped");
     },
+
     status() {
-      return { pollIntervalSec, lastSeen, lastPollAt };
-    },
-    updateConfig(cfg: Record<string, unknown>) {
-      const newInterval = Math.max(60, Number(cfg.pollIntervalSec) || 120);
-      if (newInterval !== pollIntervalSec) {
-        pollIntervalSec = newInterval;
-        if (timer) {
-          clearInterval(timer);
-          timer = setInterval(() => void poll(), pollIntervalSec * 1000);
-        }
-      }
-      ctx.log("info", `lark: config updated (every ${pollIntervalSec}s)`);
+      return { connected: wsClient != null };
     },
   };
 }
@@ -138,12 +161,11 @@ function createLarkConnector(cfg: LarkConfig, ctx: ConnectorContext): Connector 
 export const larkDescriptor: ConnectorDescriptor<LarkConfig> = {
   name: "lark",
   label: "飞书 Lark",
-  description: "飞书消息、会议邀请、日程变更。需要 self-built app 的 appId 和 appSecret。",
+  description: "飞书消息推送。通过 WebSocket 长连接实时监听消息，需要 self-built app 的 appId 和 appSecret。",
   configSchema: [
     { key: "appId", type: "string", taskRequired: true },
     { key: "appSecret", type: "string", secret: true, taskRequired: true },
-    { key: "pollIntervalSec", type: "number", min: 60 },
   ],
-  defaults: { appId: "", appSecret: "", pollIntervalSec: 120 },
+  defaults: { appId: "", appSecret: "" },
   create: createLarkConnector,
 };
