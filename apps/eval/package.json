@@ -1,0 +1,24 @@
+{
+  "name": "@noma/eval",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Noma AI 自动化 Agent 评估应用。",
+  "scripts": {
+    "eval:main": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
+    "test": "tsx src/index.ts",
+    "build": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@noma/connector": "workspace:*",
+    "@noma/event-agent": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  }
+}

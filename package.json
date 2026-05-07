@@ -1,0 +1,31 @@
+{
+  "name": "noma-ai",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.30.3",
+  "description": "本地优先的桌面端上下文 Agent，支持连接器事件输入、ACP 会话托管与自动化任务执行。",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @noma/server --filter @noma/desktop run dev",
+    "dev:server": "pnpm --filter @noma/server dev",
+    "dev:desktop": "pnpm --filter @noma/desktop dev",
+    "build": "pnpm -r --filter './{apps,packages}/*' --if-present run build",
+    "typecheck": "pnpm -r --filter './{apps,packages}/*' --if-present run typecheck",
+    "lint": "pnpm -r --filter './{apps,packages}/*' --if-present run lint",
+    "test": "pnpm -r --filter './{apps,packages}/*' --if-present run test",
+    "eval:agent": "pnpm --filter @noma/eval eval:main",
+    "smoke:desktop:acp": "pnpm --filter @noma/desktop smoke:acp",
+    "test:connector": "pnpm --filter @noma/connector test",
+    "test:connector:watch": "pnpm --filter @noma/connector test:watch",
+    "test:connector:live": "pnpm --filter @noma/connector test:live"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "electron"]
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

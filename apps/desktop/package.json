@@ -1,0 +1,40 @@
+{
+  "name": "@noma/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "description": "Noma AI Electron 桌面端应用。",
+  "scripts": {
+    "dev": "pnpm build:main && node scripts/dev.mjs",
+    "dev:renderer": "vite --host 127.0.0.1",
+    "dev:electron": "pnpm dev",
+    "build:deps": "pnpm --filter @noma/shared build && pnpm --filter @noma/event-agent build && pnpm --filter @noma/mcp-tools build && pnpm --filter @noma/agent build && pnpm --filter @noma/connector build",
+    "build:main": "pnpm build:deps && tsc -p tsconfig.electron.json",
+    "build": "pnpm build:deps && vite build && tsc -p tsconfig.electron.json",
+    "typecheck": "pnpm build:deps && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
+    "lint": "pnpm typecheck",
+    "smoke:acp": "pnpm build && node scripts/acp-smoke-cdp.mjs"
+  },
+  "dependencies": {
+    "@noma/agent": "workspace:*",
+    "@noma/connector": "workspace:*",
+    "@noma/event-agent": "workspace:*",
+    "@noma/shared": "workspace:*",
+    "@noma/ui": "workspace:*",
+    "better-sqlite3": "^12.9.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-router-dom": "^7.15.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "electron": "^36.9.5",
+    "typescript": "^5",
+    "vite": "^8.0.10"
+  }
+}

@@ -1,0 +1,77 @@
+[
+  {
+    "name": "github",
+    "label": "GitHub",
+    "description": "监听 PR/issue/review/mention 等通知。需要 PAT。",
+    "configSchema": [
+      { "key": "token", "type": "string", "secret": true, "taskRequired": true },
+      { "key": "pollIntervalSec", "type": "number", "min": 30 }
+    ],
+    "defaults": { "pollIntervalSec": 120 }
+  },
+  {
+    "name": "lark",
+    "label": "飞书 Lark",
+    "description": "飞书消息、会议邀请、日程变更。需要 self-built app 的 appId / appSecret。",
+    "configSchema": [
+      { "key": "appId", "type": "string", "taskRequired": true },
+      { "key": "appSecret", "type": "string", "secret": true, "taskRequired": true },
+      { "key": "pollIntervalSec", "type": "number", "min": 60 }
+    ],
+    "defaults": { "pollIntervalSec": 120 }
+  },
+  {
+    "name": "stock",
+    "label": "Stock (US)",
+    "description": "美股价格异动提醒（数据源 Yahoo Finance，仅支持美股标的如 AAPL、NVDA）。港股/A股请用自定义连接器。",
+    "configSchema": [
+      { "key": "symbols", "type": "string[]", "taskRequired": true },
+      { "key": "threshold", "type": "number" },
+      { "key": "pollIntervalSec", "type": "number", "min": 30 }
+    ],
+    "defaults": { "threshold": 3, "pollIntervalSec": 300 }
+  },
+  {
+    "name": "gmail",
+    "label": "Gmail",
+    "description": "监听 Gmail 新邮件通知。通过 Google OAuth 授权，无需手动填写密钥。",
+    "configSchema": [
+      { "key": "access_token", "type": "string", "secret": true, "taskRequired": true },
+      { "key": "refresh_token", "type": "string", "secret": true },
+      { "key": "expires_at", "type": "number" },
+      { "key": "pollIntervalSec", "type": "number", "min": 60 }
+    ],
+    "defaults": { "pollIntervalSec": 120 }
+  },
+  {
+    "name": "jin10",
+    "label": "金十",
+    "description": "金十财经快讯。每条新快讯触发 jin10/news；是否重要由用户任务和记忆判断。",
+    "configSchema": [
+      { "key": "pollIntervalSec", "type": "number", "min": 10 }
+    ],
+    "defaults": { "pollIntervalSec": 30 }
+  },
+  {
+    "name": "weather",
+    "label": "天气",
+    "description": "按城市监测预报，恶劣天气（强降水/大风/极端气温）触发提醒。",
+    "configSchema": [
+      { "key": "country", "type": "string", "taskRequired": true },
+      { "key": "city", "type": "string", "taskRequired": true },
+      { "key": "datetime", "type": "string" },
+      { "key": "pollIntervalSec", "type": "number", "min": 60 }
+    ],
+    "defaults": { "pollIntervalSec": 1800 }
+  },
+  {
+    "name": "flight",
+    "label": "航班",
+    "description": "按航班号通过 OpenSky 公开 ADS-B 数据跟踪一趟航班，起飞/降落/位置明显变化时通知。",
+    "configSchema": [
+      { "key": "flightNumber", "type": "string", "taskRequired": true },
+      { "key": "pollIntervalSec", "type": "number", "min": 60 }
+    ],
+    "defaults": { "pollIntervalSec": 600 }
+  }
+]

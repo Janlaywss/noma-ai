@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Noma — Design Style Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="shadcn-tokens.css" />
+  <link rel="stylesheet" href="wireframe.css" />
+  <style>
+    :root {
+      --doc-max: 960px;
+      --doc-pad: 48px;
+    }
+    body {
+      background: var(--paper-warm);
+      color: var(--ink);
+      font-family: var(--font-ui);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .doc {
+      max-width: var(--doc-max);
+      margin: 0 auto;
+      padding: 64px var(--doc-pad) 120px;
+    }
+    .doc-hero {
+      border-bottom: 1.5px solid var(--ink);
+      padding-bottom: 32px;
+      margin-bottom: 48px;
+    }
+    .doc-hero .eyebrow {
+      font-family: var(--font-hand);
+      color: var(--accent);
+      font-size: 22px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .doc-hero h1 {
+      font-size: 56px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin: 0 0 16px;
+      line-height: 1.05;
+    }
+    .doc-hero .lede {
+      font-size: 18px;
+      color: var(--ink-soft);
+      max-width: 620px;
+      line-height: 1.55;
+    }
+    .doc-hero .meta {
+      display: flex; gap: 20px; margin-top: 24px;
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--ink-muted);
+      text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    .doc-hero .meta span b { color: var(--ink); font-weight: 600; }
+
+    section.chapter {
+      margin: 80px 0 0;
+      scroll-margin-top: 24px;
+    }
+    section.chapter > h2 {
+      font-size: 36px;
+      letter-spacing: -0.02em;
+      margin: 0 0 8px;
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    section.chapter > h2 .num {
+      font-family: var(--font-hand);
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 32px;
+    }
+    section.chapter > .sublede {
+      color: var(--ink-soft);
+      font-size: 16px;
+      margin: 0 0 32px;
+      max-width: 640px;
+    }
+
+    h3 {
+      font-size: 20px;
+      margin: 40px 0 12px;
+      letter-spacing: -0.01em;
+    }
+    h4 {
+      font-size: 14px;
+      margin: 24px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ink-muted);
+      font-weight: 600;
+    }
+
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 0 0 16px; padding-left: 22px; }
+    ul li, ol li { margin-bottom: 6px; }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      background: white;
+      border: 1px solid var(--line-soft);
+      padding: 1px 6px;
+      border-radius: 4px;
+      color: var(--ink);
+    }
+
+    /* === reusable doc primitives === */
+    .panel {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+    .panel-soft {
+      background: oklch(0.98 0 0);
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 14px;
+      margin: 16px 0 24px;
+    }
+    .swatch {
+      background: white;
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .swatch .chip {
+      height: 80px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .swatch .meta {
+      padding: 8px 10px;
+    }
+    .swatch .meta .name {
+      font-size: 12px; font-weight: 600;
+    }
+    .swatch .meta .val {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--ink-muted);
+      margin-top: 2px;
+      word-break: break-all;
+    }
+
+    .scale-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 1fr;
+      gap: 16px;
+      align-items: baseline;
+      padding: 14px 0;
+      border-bottom: 1px dashed var(--line-soft);
+    }
+    .scale-row:last-child { border-bottom: none; }
+    .scale-row .token {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+    }
+    .scale-row .sample { color: var(--ink); }
+    .scale-row .note {
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+
+    .radius-row {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .radius-cell {
+      width: 110px;
+      text-align: center;
+    }
+    .radius-cell .r {
+      width: 80px; height: 80px;
+      background: var(--ink);
+      margin: 0 auto 8px;
+    }
+    .radius-cell .lbl { font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted); }
+
+    .shadow-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 20px;
+      margin: 16px 0;
+    }
+    .shadow-cell {
+      text-align: center;
+      padding: 8px 0 0;
+    }
+    .shadow-cell .box {
+      width: 100%; height: 84px;
+      background: white;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    .shadow-cell .lbl { font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted); }
+
+    .do-dont {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 16px 0;
+    }
+    .do, .dont {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: white;
+    }
+    .do { border-left: 4px solid var(--ok); }
+    .dont { border-left: 4px solid var(--danger); }
+    .do h5, .dont h5 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .do h5 { color: var(--ok); }
+    .dont h5 { color: var(--danger); }
+    .do ul, .dont ul { margin: 0; padding-left: 18px; font-size: 13px; }
+
+    .toc {
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin: 32px 0 0;
+      column-count: 2;
+      column-gap: 32px;
+    }
+    .toc ol {
+      margin: 0; padding: 0; list-style: none;
+      counter-reset: ch;
+    }
+    .toc ol li {
+      counter-increment: ch;
+      padding: 4px 0;
+      font-size: 13px;
+      break-inside: avoid;
+    }
+    .toc ol li::before {
+      content: counter(ch, decimal-leading-zero);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+      margin-right: 10px;
+    }
+    .toc a {
+      color: var(--ink);
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+    }
+    .toc a:hover { border-bottom-color: var(--accent); color: var(--accent); }
+
+    /* === component preview cells === */
+    .preview {
+      background: var(--paper-warm);
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      padding: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin: 12px 0;
+    }
+    .preview.col { flex-direction: column; align-items: stretch; }
+
+    /* sticky-note callout used for key principles */
+    .note-callout {
+      display: flex; gap: 16px;
+      margin: 24px 0;
+      align-items: flex-start;
+    }
+    .note-callout .note {
+      flex-shrink: 0;
+      width: 200px;
+      background: var(--note);
+      border: 1px solid var(--note-edge);
+      border-radius: 4px;
+      padding: 12px 14px;
+      font-family: var(--font-hand);
+      font-size: 18px;
+      line-height: 1.25;
+      color: oklch(0.35 0.06 80);
+      box-shadow: 1px 2px 4px rgba(0,0,0,0.08);
+      transform: rotate(-1.5deg);
+    }
+    .note-callout .body { flex: 1; padding-top: 8px; color: var(--ink-soft); }
+
+    /* hand annotation arrow */
+    .annot-inline {
+      font-family: var(--font-hand);
+      color: var(--accent);
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .principle {
+      display: grid;
+      grid-template-columns: 60px 1fr;
+      gap: 20px;
+      padding: 20px 0;
+      border-bottom: 1px dashed var(--line-soft);
+    }
+    .principle:last-child { border-bottom: none; }
+    .principle .num {
+      font-family: var(--font-hand);
+      color: var(--accent);
+      font-size: 44px;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .principle h4 {
+      margin: 0 0 6px;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--ink);
+      font-size: 17px;
+    }
+    .principle p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+
+    .kbd {
+      display: inline-block;
+      padding: 1px 6px;
+      border: 1px solid var(--line);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      background: white;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-soft);
+    }
+
+    /* in-page nav anchor offset */
+    section.chapter[id] { padding-top: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="doc">
+
+  <!-- ============== HERO ============== -->
+  <header class="doc-hero">
+    <div class="eyebrow">design system · v0.1</div>
+    <h1>Noma — Style Guide</h1>
+    <p class="lede">A working reference for the visual + interaction language used across Noma's wireframes. Built on shadcn/ui tokens (neutral, OKLCH), wrapped in a deliberately sketchy "design-in-progress" overlay so we can keep iterating on intent without prematurely locking pixels.</p>
+    <div class="meta">
+      <span><b>Stage</b> low-fi → mid-fi</span>
+      <span><b>Base</b> shadcn/ui new-york-v4 · neutral</span>
+      <span><b>Color space</b> OKLCH</span>
+      <span><b>Type</b> Geist + Caveat</span>
+    </div>
+  </header>
+
+  <!-- TOC -->
+  <nav class="toc">
+    <ol>
+      <li><a href="#principles">Design principles</a></li>
+      <li><a href="#voice">Voice &amp; tone</a></li>
+      <li><a href="#color">Color</a></li>
+      <li><a href="#type">Typography</a></li>
+      <li><a href="#space">Spacing &amp; radius</a></li>
+      <li><a href="#shadow">Elevation &amp; shadow</a></li>
+      <li><a href="#components">Components</a></li>
+      <li><a href="#patterns">Layout patterns</a></li>
+      <li><a href="#status">Status &amp; state</a></li>
+      <li><a href="#iconography">Iconography &amp; connectors</a></li>
+      <li><a href="#wireframe">Wireframe overlay</a></li>
+      <li><a href="#dos">Do / Don't</a></li>
+    </ol>
+  </nav>
+
+  <!-- ============== 1. PRINCIPLES ============== -->
+  <section class="chapter" id="principles">
+    <h2><span class="num">01</span> Design principles</h2>
+    <p class="sublede">Five rules we lean on whenever a screen gets ambiguous.</p>
+
+    <div class="principle">
+      <div class="num">①</div>
+      <div>
+        <h4>Make the agent legible</h4>
+        <p>Every action Noma takes shows up as a card in the conversation, an entry in the inbox, or a row in the audit log. No invisible plumbing. If the user can't see <em>what</em> Noma did and <em>why</em>, we've failed.</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="num">②</div>
+      <div>
+        <h4>One conversation per intent</h4>
+        <p>A session pairs a chat with the connectors + tasks it owns. Switching sessions = switching context. Like Messages or Linear cycles, not like a Slack channel firehose.</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="num">③</div>
+      <div>
+        <h4>Structured events, structured tags</h4>
+        <p>Everywhere events surface — chat, inbox, decision chain — the same vocabulary repeats: <code>EVENT</code> · <code>CONTEXT</code> · <code>DECIDE</code> · <code>ACT</code>. Predictable tags = predictable mental model.</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="num">④</div>
+      <div>
+        <h4>Local-first, calm-first</h4>
+        <p>Data lives on disk. The UI doesn't shout — it uses small live-dots and pills, not red banners. Reserve red for "needs you now."</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="num">⑤</div>
+      <div>
+        <h4>Sketch first, decide later</h4>
+        <p>This system intentionally reads as low-fi. The hand-written annotations and 2px ink borders are a permission slip to keep iterating. Don't promote anything to "final" until the flow is locked.</p>
+      </div>
+    </div>
+
+    <div class="note-callout">
+      <div class="note">If a screen looks polished, users start critiquing the gradient instead of the flow. Stay sketchy ✏</div>
+      <div class="body">The sketchy aesthetic is a <em>strategic</em> choice for this phase. We will swap to clean shadcn surfaces (no ink shadows, no Caveat) once the structure ships.</div>
+    </div>
+  </section>
+
+  <!-- ============== 2. VOICE ============== -->
+  <section class="chapter" id="voice">
+    <h2><span class="num">02</span> Voice &amp; tone</h2>
+    <p class="sublede">How Noma talks, in chat, in cards, in error states.</p>
+
+    <h3>Noma's voice</h3>
+    <ul>
+      <li><b>Plain spoken.</b> "Got it. Setting up a task that listens to two connectors." — not "Affirmative. Initializing event subscription pipeline."</li>
+      <li><b>First person, present tense.</b> "I sent a Lark message" — not "Noma has dispatched a message."</li>
+      <li><b>Concrete &gt; abstract.</b> Quote the value: <em>"NVDA dropped to $99.84"</em>, not <em>"price threshold breached"</em>.</li>
+      <li><b>One verb per card.</b> Action cards lead with: <code>Sent</code>, <code>Created</code>, <code>Skipped</code>, <code>Watching</code>, <code>Asked</code>.</li>
+    </ul>
+
+    <h3>Microcopy patterns</h3>
+    <div class="panel-soft">
+      <div class="scale-row">
+        <span class="token">empty state</span>
+        <span class="sample">Nothing here yet — the first event will land in this view.</span>
+        <span class="note">Friendly + tells you what to expect</span>
+      </div>
+      <div class="scale-row">
+        <span class="token">awaiting input</span>
+        <span class="sample">I drafted a reply. Send it as-is, edit, or discard?</span>
+        <span class="note">Always give 3 verbs, not yes/no</span>
+      </div>
+      <div class="scale-row">
+        <span class="token">filtered</span>
+        <span class="sample">3 events processed · 1 forwarded to you</span>
+        <span class="note">Receipts for what got skipped</span>
+      </div>
+      <div class="scale-row">
+        <span class="token">error</span>
+        <span class="sample">Stocks connector timed out — retrying in 30s.</span>
+        <span class="note">State the cause + next step</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== 3. COLOR ============== -->
+  <section class="chapter" id="color">
+    <h2><span class="num">03</span> Color</h2>
+    <p class="sublede">Two layers: shadcn neutral tokens for the underlying app, a sketchy "ink &amp; paper" overlay for wireframes. All values OKLCH so the dark-mode flip is mechanical.</p>
+
+    <h3>Wireframe palette</h3>
+    <p>Used by every screen on the canvas. Inspired by sketchbook + blue-marker annotation.</p>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background:oklch(0.97 0.005 80)"></div><div class="meta"><div class="name">Paper warm</div><div class="val">--paper-warm<br>oklch(.97 .005 80)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.985 0 0)"></div><div class="meta"><div class="name">Paper</div><div class="val">--paper<br>oklch(.985 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.18 0 0)"></div><div class="meta"><div class="name">Ink</div><div class="val">--ink<br>oklch(.18 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.35 0 0)"></div><div class="meta"><div class="name">Ink soft</div><div class="val">--ink-soft<br>oklch(.35 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.55 0 0)"></div><div class="meta"><div class="name">Ink muted</div><div class="val">--ink-muted<br>oklch(.55 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.78 0 0)"></div><div class="meta"><div class="name">Line</div><div class="val">--line<br>oklch(.78 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.88 0 0)"></div><div class="meta"><div class="name">Line soft</div><div class="val">--line-soft<br>oklch(.88 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.62 0.16 252)"></div><div class="meta"><div class="name">Accent (blue marker)</div><div class="val">--accent<br>oklch(.62 .16 252)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.92 0.04 252)"></div><div class="meta"><div class="name">Accent soft</div><div class="val">--accent-soft<br>oklch(.92 .04 252)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.94 0.10 95)"></div><div class="meta"><div class="name">Note (sticky yellow)</div><div class="val">--note<br>oklch(.94 .10 95)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.62 0.16 150)"></div><div class="meta"><div class="name">OK</div><div class="val">--ok<br>oklch(.62 .16 150)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.62 0.20 25)"></div><div class="meta"><div class="name">Danger</div><div class="val">--danger<br>oklch(.62 .20 25)</div></div></div>
+    </div>
+
+    <h3>Underlying shadcn tokens</h3>
+    <p>The hi-fi target. When we promote a wireframe to a real screen, we map ink→<code>--foreground</code>, paper→<code>--background</code>, etc.</p>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background:oklch(1 0 0); border-bottom: 1px solid var(--line-soft)"></div><div class="meta"><div class="name">background</div><div class="val">oklch(1 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.145 0 0)"></div><div class="meta"><div class="name">foreground</div><div class="val">oklch(.145 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.205 0 0)"></div><div class="meta"><div class="name">primary</div><div class="val">oklch(.205 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.97 0 0)"></div><div class="meta"><div class="name">secondary / muted</div><div class="val">oklch(.97 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.556 0 0)"></div><div class="meta"><div class="name">muted-foreground</div><div class="val">oklch(.556 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.922 0 0)"></div><div class="meta"><div class="name">border / input</div><div class="val">oklch(.922 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.985 0 0)"></div><div class="meta"><div class="name">sidebar</div><div class="val">oklch(.985 0 0)</div></div></div>
+      <div class="swatch"><div class="chip" style="background:oklch(0.577 0.245 27.325)"></div><div class="meta"><div class="name">destructive</div><div class="val">oklch(.577 .245 27.3)</div></div></div>
+    </div>
+
+    <h3>Color rules</h3>
+    <ul>
+      <li><b>Accent blue is for human annotation only.</b> Never use it for primary buttons, links, or product chrome — that role belongs to ink (near-black). Blue marker = "designer is talking to you."</li>
+      <li><b>Yellow is reserved for sticky notes.</b> Don't use it for warnings — that's amber/orange in the pill scale.</li>
+      <li><b>Status colors are pills, not surfaces.</b> A green page is wrong. A green pill that says "live" is right.</li>
+      <li><b>Connector brand colors</b> live inside the connector icon only. They never bleed into the surrounding card.</li>
+    </ul>
+  </section>
+
+  <!-- ============== 4. TYPE ============== -->
+  <section class="chapter" id="type">
+    <h2><span class="num">04</span> Typography</h2>
+    <p class="sublede">Three faces, three jobs. Don't introduce a fourth.</p>
+
+    <div class="panel">
+      <div class="row gap-4" style="flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 220px;">
+          <div style="font-family: var(--font-sans); font-size: 32px; font-weight: 600; letter-spacing: -0.02em;">Geist Sans</div>
+          <div class="muted" style="font-size: 12px; margin-top: 4px;">UI · headings · body · everything default. Falls back to Inter, then system.</div>
+        </div>
+        <div style="flex: 1; min-width: 220px;">
+          <div style="font-family: var(--font-mono); font-size: 28px;">Geist Mono</div>
+          <div class="muted" style="font-size: 12px; margin-top: 4px;">Timestamps · IDs · payloads · keyboard shortcuts. Anything tabular.</div>
+        </div>
+        <div style="flex: 1; min-width: 220px;">
+          <div style="font-family: var(--font-hand); font-size: 38px; color: var(--accent); font-weight: 500; line-height: 1;">Caveat</div>
+          <div class="muted" style="font-size: 12px; margin-top: 4px;">Hand-written annotations + sticky-note text. Wireframe layer only — never ships to hi-fi.</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Type scale</h3>
+    <div class="panel-soft">
+      <div class="scale-row"><span class="token">--text-6xl · 60</span><span class="sample" style="font-size: 60px; line-height: 1; letter-spacing: -0.025em; font-weight: 700;">Hero</span><span class="note">Marketing only</span></div>
+      <div class="scale-row"><span class="token">--text-4xl · 36</span><span class="sample" style="font-size: 36px; line-height: 1.1; letter-spacing: -0.02em; font-weight: 700;">Page title</span><span class="note">h1</span></div>
+      <div class="scale-row"><span class="token">--text-3xl · 30</span><span class="sample" style="font-size: 30px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 600;">Chapter</span><span class="note">h2</span></div>
+      <div class="scale-row"><span class="token">--text-2xl · 24</span><span class="sample" style="font-size: 24px; font-weight: 600;">Section</span><span class="note">h3</span></div>
+      <div class="scale-row"><span class="token">--text-xl · 20</span><span class="sample" style="font-size: 20px; font-weight: 600;">Card title</span><span class="note">h4</span></div>
+      <div class="scale-row"><span class="token">--text-base · 16</span><span class="sample" style="font-size: 16px;">Body — used for chat messages and reading panes.</span><span class="note">long-form text</span></div>
+      <div class="scale-row"><span class="token">--text-sm · 14</span><span class="sample" style="font-size: 14px;">Default UI body. List rows, table cells, form labels.</span><span class="note">default</span></div>
+      <div class="scale-row"><span class="token">--text-xs · 12</span><span class="sample" style="font-size: 12px;">Meta · captions · pills</span><span class="note">support</span></div>
+      <div class="scale-row"><span class="token">10px</span><span class="sample" style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">Section eyebrow</span><span class="note">sidebar headers</span></div>
+    </div>
+
+    <h3>Hand-annotation type</h3>
+    <p>Caveat at 16–22px, weight 500, color <code>--accent</code>. Always paired with an arrow or sticky note. Never used as page chrome.</p>
+    <div class="preview" style="background: white;">
+      <span class="annot-inline">design note: this column animates when a connector emits</span>
+    </div>
+  </section>
+
+  <!-- ============== 5. SPACE ============== -->
+  <section class="chapter" id="space">
+    <h2><span class="num">05</span> Spacing &amp; radius</h2>
+    <p class="sublede">Tailwind-default 4px scale. Round corners track the canonical shadcn 10px.</p>
+
+    <h3>Spacing scale</h3>
+    <div class="panel-soft">
+      <div class="scale-row"><span class="token">--space-1 · 4</span><span class="sample"><div style="background: var(--ink); width: 4px; height: 16px;"></div></span><span class="note">tight chip gaps</span></div>
+      <div class="scale-row"><span class="token">--space-2 · 8</span><span class="sample"><div style="background: var(--ink); width: 8px; height: 16px;"></div></span><span class="note">default row gap</span></div>
+      <div class="scale-row"><span class="token">--space-3 · 12</span><span class="sample"><div style="background: var(--ink); width: 12px; height: 16px;"></div></span><span class="note">card body gap</span></div>
+      <div class="scale-row"><span class="token">--space-4 · 16</span><span class="sample"><div style="background: var(--ink); width: 16px; height: 16px;"></div></span><span class="note">card padding</span></div>
+      <div class="scale-row"><span class="token">--space-6 · 24</span><span class="sample"><div style="background: var(--ink); width: 24px; height: 16px;"></div></span><span class="note">page padding · section gap</span></div>
+      <div class="scale-row"><span class="token">--space-8 · 32</span><span class="sample"><div style="background: var(--ink); width: 32px; height: 16px;"></div></span><span class="note">major section break</span></div>
+      <div class="scale-row"><span class="token">--space-12 · 48</span><span class="sample"><div style="background: var(--ink); width: 48px; height: 16px;"></div></span><span class="note">hero / chapter break</span></div>
+    </div>
+
+    <h3>Radius scale</h3>
+    <div class="radius-row">
+      <div class="radius-cell"><div class="r" style="border-radius: 4px;"></div><div class="lbl">4px<br>chips/inputs</div></div>
+      <div class="radius-cell"><div class="r" style="border-radius: 6px;"></div><div class="lbl">6px<br>buttons/items</div></div>
+      <div class="radius-cell"><div class="r" style="border-radius: 8px;"></div><div class="lbl">8px<br>cards (soft)</div></div>
+      <div class="radius-cell"><div class="r" style="border-radius: 10px;"></div><div class="lbl">10px<br>cards (default)</div></div>
+      <div class="radius-cell"><div class="r" style="border-radius: 12px;"></div><div class="lbl">12px<br>app windows</div></div>
+      <div class="radius-cell"><div class="r" style="border-radius: 999px;"></div><div class="lbl">999<br>pills/dots/avatars</div></div>
+    </div>
+
+    <h3>Density modes</h3>
+    <p>Two densities, controlled by <code>data-density</code> on body. Comfy = default, Compact = power-user.</p>
+    <ul>
+      <li><b>Comfy:</b> sidebar items 32px tall · row gap 8px · card padding 16px</li>
+      <li><b>Compact:</b> sidebar items 26px tall · row gap 4px · card padding 12px</li>
+    </ul>
+  </section>
+
+  <!-- ============== 6. SHADOW ============== -->
+  <section class="chapter" id="shadow">
+    <h2><span class="num">06</span> Elevation &amp; shadow</h2>
+    <p class="sublede">Two systems. Tailwind/shadcn for the real app, hand-drawn ink offsets for the wireframe layer.</p>
+
+    <h3>Shadcn elevation (hi-fi)</h3>
+    <div class="shadow-row">
+      <div class="shadow-cell"><div class="box" style="box-shadow: var(--shadow-xs);"></div><div class="lbl">--shadow-xs</div></div>
+      <div class="shadow-cell"><div class="box" style="box-shadow: var(--shadow-sm);"></div><div class="lbl">--shadow-sm</div></div>
+      <div class="shadow-cell"><div class="box" style="box-shadow: var(--shadow-md);"></div><div class="lbl">--shadow-md</div></div>
+      <div class="shadow-cell"><div class="box" style="box-shadow: var(--shadow-lg);"></div><div class="lbl">--shadow-lg</div></div>
+      <div class="shadow-cell"><div class="box" style="box-shadow: var(--shadow-xl);"></div><div class="lbl">--shadow-xl</div></div>
+      <div class="shadow-cell"><div class="box" style="box-shadow: var(--shadow-2xl);"></div><div class="lbl">--shadow-2xl</div></div>
+    </div>
+    <p class="muted" style="font-size: 12px;">Floating panels: <code>md</code> · Modals: <code>xl</code> · Popovers: <code>lg</code> · Cards: usually no shadow, just border.</p>
+
+    <h3>Wireframe ink shadow (lo-fi)</h3>
+    <div class="shadow-row">
+      <div class="shadow-cell"><div class="box" style="box-shadow: 1.5px 1.5px 0 0 var(--ink); border: 1.5px solid var(--ink);"></div><div class="lbl">btn · 1.5px</div></div>
+      <div class="shadow-cell"><div class="box" style="box-shadow: 2px 2px 0 0 var(--ink); border: 1.5px solid var(--ink);"></div><div class="lbl">card · 2px</div></div>
+      <div class="shadow-cell"><div class="box" style="box-shadow: 3px 3px 0 0 var(--ink); border: 1.5px solid var(--ink);"></div><div class="lbl">window · 3px</div></div>
+    </div>
+    <p class="muted" style="font-size: 12px;">Solid black offset, no blur. Stacks read as paper-on-paper. Strip these entirely when promoting to hi-fi.</p>
+  </section>
+
+  <!-- ============== 7. COMPONENTS ============== -->
+  <section class="chapter" id="components">
+    <h2><span class="num">07</span> Components</h2>
+    <p class="sublede">The atomic vocabulary. Stay inside this set; if you need something new, propose it as an addition rather than improvising.</p>
+
+    <h3>Buttons</h3>
+    <div class="preview">
+      <button class="wf-btn wf-btn-primary">Send ⏎</button>
+      <button class="wf-btn">Configure</button>
+      <button class="wf-btn wf-btn-ghost">⌘K</button>
+      <button class="wf-btn" style="height: 24px; font-size: 11px; padding: 0 8px;">small</button>
+    </div>
+    <ul>
+      <li><b>Primary</b> — ink fill, white text. One per surface, max.</li>
+      <li><b>Default</b> — white fill, ink border + 1.5px ink shadow.</li>
+      <li><b>Ghost</b> — soft border, no shadow. For meta actions (⋯, Cancel, ⌘K).</li>
+    </ul>
+
+    <h3>Pills</h3>
+    <div class="preview">
+      <span class="wf-pill wf-pill-soft">23 events</span>
+      <span class="wf-pill wf-pill-ok">● live</span>
+      <span class="wf-pill wf-pill-warn">paused</span>
+      <span class="wf-pill wf-pill-danger">error</span>
+      <span class="wf-pill wf-pill-accent">polling · 30s</span>
+      <span class="wf-pill">NVDA</span>
+    </div>
+    <p>Pills are 20px tall, 8px h-padding, font 11px. Use a <b>StatusDot</b> inside ok/live pills for the green dot.</p>
+
+    <h3>Cards</h3>
+    <div class="preview col">
+      <div class="wf-card-soft" style="padding: 16px;">
+        <div class="row gap-2" style="margin-bottom: 8px;">
+          <span style="font-weight: 600;">Soft card</span>
+          <span class="flex-1"></span>
+          <span class="wf-pill wf-pill-soft">23 events</span>
+        </div>
+        <div class="muted" style="font-size: 12px;">Default card. 1px line-soft border, 8px radius, no shadow. Use for everything inside the app body.</div>
+      </div>
+      <div class="wf-card" style="padding: 16px;">
+        <div style="font-weight: 600; margin-bottom: 8px;">Sketch card (ink shadow)</div>
+        <div class="muted" style="font-size: 12px;">Reserve for when an element should feel hand-drawn — usually only inside the wireframe overlay (sticky notes, design rationale boards).</div>
+      </div>
+    </div>
+
+    <h3>Inputs</h3>
+    <div class="preview col">
+      <div class="wf-input row gap-2" style="align-items: center;">
+        <span class="muted">⌕</span>
+        <span class="muted" style="font-size: 12px;">Search chats…</span>
+      </div>
+      <div class="wf-input" style="height: auto; min-height: 60px; padding: 10px;">
+        <div class="muted" style="font-size: 13px;">Reply or give a new instruction…</div>
+      </div>
+    </div>
+
+    <h3>Sidebar items</h3>
+    <div class="preview col" style="background: oklch(0.98 0 0);">
+      <div class="sb-item active"><span>◆</span><span class="flex-1">NVDA earnings watch</span><span class="sb-item-badge live">●</span></div>
+      <div class="sb-item"><span>◇</span><span class="flex-1">Repo PR triage</span></div>
+      <div class="sb-item"><span>◇</span><span class="flex-1">Inbox digest</span><span class="sb-item-badge">2</span></div>
+    </div>
+
+    <h3>Sticky notes</h3>
+    <div class="preview">
+      <div class="wf-sticky">data stays local — no cloud sync</div>
+      <div class="wf-sticky" style="transform: rotate(1deg); background: oklch(0.92 0.06 200);">connectors are JS — drop one in to extend</div>
+    </div>
+    <p>Use to capture design rationale that doesn't belong in the product UI itself. Always rotated 1–2°. Caveat 16px, color tinted to match background hue.</p>
+
+    <h3>Avatars</h3>
+    <div class="preview">
+      <div class="wf-avatar">Y</div>
+      <div class="wf-avatar" style="background: oklch(0.85 0.05 250)">A</div>
+      <div class="sb-logo">N</div>
+      <div class="sb-logo" style="width: 32px; height: 32px; font-size: 14px;">N</div>
+    </div>
+
+    <h3>Action card (in-chat)</h3>
+    <p>The pattern Noma uses to report an action inside a chat message. Status dot + icon-glyph + title + (optional body) + (optional pills row).</p>
+    <div class="preview col">
+      <div class="wf-card-soft" style="padding: 10px;">
+        <div class="row gap-2" style="margin-bottom: 6px;">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 999px; background: #10b981;"></span>
+          <span style="font-size: 11px; font-weight: 600;">✉ Sent message · Lark · #me</span>
+          <span class="flex-1"></span>
+          <span class="muted" style="font-size: 11px;">✓ done</span>
+        </div>
+        <div class="muted" style="font-size: 12px;">"NVDA hit $99.84 at 2:46 — first sub-$100. Want a recap?"</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== 8. PATTERNS ============== -->
+  <section class="chapter" id="patterns">
+    <h2><span class="num">08</span> Layout patterns</h2>
+    <p class="sublede">The frame structures that repeat across screens.</p>
+
+    <h3>App shell</h3>
+    <p>Every screen sits inside a <b>MacFrame</b>: 32px traffic-light titlebar, then a body that's a flex row of <code>.app-sidebar</code> + <code>.app-content</code>.</p>
+    <ul>
+      <li><b>Sidebar</b> — 220–260px, soft-grey bg (<code>oklch(.98 0 0)</code>), 1px line border-right.</li>
+      <li><b>Content</b> — fills, scrolls. First child is a 48px <code>.app-header</code> with title + meta + actions.</li>
+      <li><b>Optional right rail</b> — 280px, line border-left. Used sparingly; default is no rail (chat A pattern).</li>
+    </ul>
+
+    <h3>App-header recipe</h3>
+    <div class="panel-soft" style="padding: 0;">
+      <div class="app-header" style="background: white; border-radius: 8px;">
+        <div class="col flex-1">
+          <span style="font-size: 13px; font-weight: 600;">NVDA earnings watch</span>
+          <span class="muted" style="font-size: 11px;">2 connectors · last event 3m ago</span>
+        </div>
+        <span class="wf-pill wf-pill-ok">● live</span>
+        <button class="wf-btn" style="height: 24px; font-size: 11px;">⚙ Configure</button>
+      </div>
+    </div>
+
+    <h3>List + reading pane (inbox / mail style)</h3>
+    <p>Three columns: sidebar · list (320–380px) · reading pane (fills). Selected row = soft-grey bg, ink border-left.</p>
+
+    <h3>Kanban (tasks)</h3>
+    <p>Three vertical columns: <em>Running</em>, <em>Waiting on you</em>, <em>Done today</em>. Each column has a header pill with count. Cards are 1px soft-line, 8px radius, padding 12px.</p>
+
+    <h3>Decision chain (task detail)</h3>
+    <p>Vertical timeline. Each event is a node block: tag pill (<code>EVENT / CONTEXT / DECIDE / ACT</code>) + title + content card + connector chip rail at the bottom. Use the same 4 tags everywhere — never invent a 5th.</p>
+
+    <h3>Window scaling</h3>
+    <p>Artboards are fixed 1280×820 (16:10ish). On the canvas they're scaled to fit; in focus mode they fill the viewport letterboxed on warm-paper background.</p>
+  </section>
+
+  <!-- ============== 9. STATUS ============== -->
+  <section class="chapter" id="status">
+    <h2><span class="num">09</span> Status &amp; state</h2>
+    <p class="sublede">A small, fixed vocabulary. Never invent new statuses without adding them here first.</p>
+
+    <div class="panel-soft">
+      <div class="scale-row">
+        <span class="token">live</span>
+        <span class="sample row gap-2"><span style="display:inline-block;width:8px;height:8px;border-radius:999px;background:#10b981;"></span><span class="wf-pill wf-pill-ok">● live</span></span>
+        <span class="note">Currently emitting / running</span>
+      </div>
+      <div class="scale-row">
+        <span class="token">idle</span>
+        <span class="sample row gap-2"><span style="display:inline-block;width:8px;height:8px;border-radius:999px;background:#9ca3af;"></span><span class="wf-pill">idle</span></span>
+        <span class="note">Installed, no recent activity</span>
+      </div>
+      <div class="scale-row">
+        <span class="token">thinking</span>
+        <span class="sample row gap-2"><span style="display:inline-block;width:8px;height:8px;border-radius:999px;background:#3b82f6;animation:pulse 1.5s infinite;"></span><span class="wf-pill wf-pill-accent">thinking…</span></span>
+        <span class="note">Agent reasoning in progress</span>
+      </div>
+      <div class="scale-row">
+        <span class="token">waiting</span>
+        <span class="sample"><span class="wf-pill wf-pill-warn">waiting on you</span></span>
+        <span class="note">Action drafted, needs human approval</span>
+      </div>
+      <div class="scale-row">
+        <span class="token">paused</span>
+        <span class="sample"><span class="wf-pill wf-pill-warn">paused</span></span>
+        <span class="note">Manually paused by user</span>
+      </div>
+      <div class="scale-row">
+        <span class="token">error</span>
+        <span class="sample"><span class="wf-pill wf-pill-danger">error</span></span>
+        <span class="note">Last invocation failed; auto-retry</span>
+      </div>
+      <div class="scale-row">
+        <span class="token">done</span>
+        <span class="sample" style="font-size: 12px; color: var(--ink-muted);">✓ done</span>
+        <span class="note">Action completed (in-chat receipts)</span>
+      </div>
+      <div class="scale-row">
+        <span class="token">skipped</span>
+        <span class="sample" style="font-size: 12px; color: var(--ink-muted);">skipped · low signal</span>
+        <span class="note">Filtered out, with reason</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============== 10. ICONS ============== -->
+  <section class="chapter" id="iconography">
+    <h2><span class="num">10</span> Iconography &amp; connectors</h2>
+    <p class="sublede">We don't ship a custom icon set yet. Two placeholder strategies.</p>
+
+    <h3>Icon glyphs</h3>
+    <p>Inline geometric/Unicode glyphs as placeholders during wireframing. Pick from this stable set:</p>
+    <div class="preview" style="font-size: 16px; gap: 18px;">
+      <span title="Chat">💬</span>
+      <span title="Tasks">📋</span>
+      <span title="Connectors">🔌</span>
+      <span title="Inbox">📥</span>
+      <span title="Settings">⚙</span>
+      <span title="Action sent">✉</span>
+      <span title="Active">◆</span>
+      <span title="Inactive">◇</span>
+      <span title="Add">+</span>
+      <span title="More">⋯</span>
+    </div>
+    <p class="muted" style="font-size: 12px;">When we move to hi-fi: replace with Lucide (shadcn's default).</p>
+
+    <h3>Connector icons</h3>
+    <p>Each connector is rendered as a 32–36px rounded square with a brand-tinted background and a 1-letter mark. This is the <em>only</em> place brand color is allowed.</p>
+    <div class="preview">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#fef2f2;color:#dc2626;font-weight:700;border:1px solid var(--line-soft);">M</div>
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#1f2937;color:#fff;font-weight:700;">G</div>
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#ecfdf5;color:#059669;font-weight:700;border:1px solid var(--line-soft);">$</div>
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#0ea5e9;color:#fff;font-weight:700;">L</div>
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#fef3c7;color:#b45309;font-weight:700;border:1px solid var(--line-soft);">⚡</div>
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:#f3f4f6;color:#525252;font-weight:700;border:1px solid var(--line-soft);">◇</div>
+    </div>
+  </section>
+
+  <!-- ============== 11. WIREFRAME LAYER ============== -->
+  <section class="chapter" id="wireframe">
+    <h2><span class="num">11</span> Wireframe overlay</h2>
+    <p class="sublede">The "design-in-progress" treatment that sits on top of the real interface tokens.</p>
+
+    <h3>What makes it look sketchy</h3>
+    <ol>
+      <li><b>Warm paper background</b> — <code>oklch(0.97 0.005 80)</code>. Not pure white.</li>
+      <li><b>Ink borders</b> — 1.5px solid <code>--ink</code> on hero elements (windows, sketch cards). 1px <code>--line</code> for everything else.</li>
+      <li><b>Solid offset shadows</b> — 1.5–3px ink shadow with no blur. Reads as paper-on-paper.</li>
+      <li><b>Hand-written annotations</b> — Caveat in <code>--accent</code> (blue marker), tied to the design with curved SVG arrows.</li>
+      <li><b>Sticky-note callouts</b> — yellow paper, 1° rotation, soft drop shadow.</li>
+      <li><b>Diagonal-hatch placeholders</b> — for any image/avatar we haven't built yet. Always paired with a Caveat label.</li>
+      <li><b>"Drop a .js file"-style affordances</b> — dashed boxes for things that are intentionally empty.</li>
+    </ol>
+
+    <h3>Annotation arrows</h3>
+    <p>4 directions: <code>up</code>, <code>down</code>, <code>left</code>, <code>right</code>. Drawn as SVG curves with two small bezier control points so they look hand-drawn, never as straight lines or right angles. Stroke 1.5px, blue marker color.</p>
+
+    <h3>Promotion path (lo-fi → hi-fi)</h3>
+    <p>When a wireframe is approved and we're ready to move to a real screen:</p>
+    <ol>
+      <li>Strip the warm paper bg → use shadcn <code>--background</code>.</li>
+      <li>Strip ink borders + offset shadows → use <code>--border</code> + <code>--shadow-sm</code>.</li>
+      <li>Replace Caveat annotations with proper UI labels or remove.</li>
+      <li>Remove sticky notes (capture rationale in PR description).</li>
+      <li>Replace placeholder glyphs with Lucide icons.</li>
+      <li>Keep the <em>structure</em> — sidebar widths, header height, action card pattern, status vocabulary.</li>
+    </ol>
+  </section>
+
+  <!-- ============== 12. DO/DON'T ============== -->
+  <section class="chapter" id="dos">
+    <h2><span class="num">12</span> Do / Don't</h2>
+    <p class="sublede">Common pitfalls when iterating on Noma screens.</p>
+
+    <div class="do-dont">
+      <div class="do">
+        <h5>Do</h5>
+        <ul>
+          <li>Use ink (near-black) for primary buttons.</li>
+          <li>Lead action cards with one verb: Sent, Created, Skipped.</li>
+          <li>Show what got <em>skipped</em>, not just what got handled.</li>
+          <li>Use the EVENT / CONTEXT / DECIDE / ACT tag set.</li>
+          <li>Quote concrete values in chat ("$99.84"), not abstractions.</li>
+          <li>Reserve red exclusively for "needs you now."</li>
+          <li>Make connectors clickable everywhere they appear.</li>
+        </ul>
+      </div>
+      <div class="dont">
+        <h5>Don't</h5>
+        <ul>
+          <li>Don't use the blue accent for product UI — that's annotation only.</li>
+          <li>Don't add a 5th status type without updating this guide first.</li>
+          <li>Don't hide what the agent did inside a collapsed log.</li>
+          <li>Don't use yellow as a warning color (yellow = sticky note).</li>
+          <li>Don't introduce a 4th typeface.</li>
+          <li>Don't put gradients on surfaces. Flat is the goal.</li>
+          <li>Don't "polish" wireframes — that buys premature commitment.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- footer -->
+  <footer style="margin-top: 100px; padding-top: 24px; border-top: 1.5px solid var(--ink); display: flex; align-items: baseline; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.06em;">
+    <span>Noma · style guide v0.1</span>
+    <span>maintained alongside Noma Wireframes.html</span>
+  </footer>
+</div>
+
+<style>
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+</style>
+
+</body>
+</html>

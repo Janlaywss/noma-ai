@@ -1,0 +1,113 @@
+[
+  {
+    "name": "scheduleTask",
+    "description": "创建一个 standing 事件任务（focus lens）。任务认领一个或多个连接器，每个连接器以 task 自己的 params 启动一个独立 poller。连接器 emit 出来的事件会回到这个任务，让 noma 按照 prompt 决定要不要打扰用户。当前仅支持 kind='event'，不要用于每天/每周/固定时间/倒计时/一次性提醒等 cron 或 once 任务。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "description": "standing focus 描述：要监听什么、用户的 stake 是什么、什么时候应该打扰用户。每次匹配事件到达时这段 prompt 会作为上下文传给 noma。"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["event"],
+          "description": "暂仅支持 'event'（非定时）。"
+        },
+        "connectors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "description": "来自 list_connectors 的内置连接器名。"
+              },
+              "params": {
+                "type": "object",
+                "description": "覆盖 connector 默认值的 task 级参数。常见键：pollIntervalSec（轮询节奏，秒）、symbols（股票代码列表 ['HSBC']）、city/country（天气）、flightNumber（航班号）、threshold（股价阈值百分比）、token（GitHub PAT，若未在全局连接器配置里设置）。具体可用键参考 list_connectors 返回的每个连接器的 configSchema。配置里 taskRequired=true 的字段必须在 params 里给出（descriptor 默认值是占位例子，不要继承）。",
+                "additionalProperties": true
+              }
+            },
+            "required": ["name"],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "description": "任务认领的连接器列表。每项是 {name, params?}。"
+        }
+      },
+      "required": ["title", "prompt", "kind", "connectors"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "notify",
+    "description": "推送一条值得打断用户的通知。level：'alert' 仅用于需要立即处理的紧急事项；'nudge' 用于温和的后续提醒；'info' 仅存档。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "type": "string",
+          "enum": ["info", "nudge", "alert"]
+        }
+      },
+      "required": ["message"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "createConnector",
+    "description": "创建一个自定义数据源连接器。当内置连接器都无法满足用户需求时使用。系统会自动编写和测试连接器代码。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 4,
+          "description": "连接器需求的自然语言描述：要监听什么数据源、关心什么事件。"
+        }
+      },
+      "required": ["description"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "list_connectors",
+    "description": "查看当前可用的所有数据源连接器（内置 + 自定义）。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "task_complete",
+    "description": "当用户任务已经完全完成时调用此工具来结束 ReAct 循环。调用前确认：核心需求全部满足、无遗漏步骤、结果可交付。",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "description": "对本次任务完成情况的简要总结，包含关键结果。"
+        },
+        "result": {
+          "type": "string",
+          "description": "可选的结构化结果数据，给调用方使用。"
+        }
+      },
+      "required": ["summary"],
+      "additionalProperties": false
+    }
+  }
+]
