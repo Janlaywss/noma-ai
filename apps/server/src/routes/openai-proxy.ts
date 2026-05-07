@@ -4,8 +4,6 @@ import {
   type AgentSystemPromptKind,
 } from "@noma/event-agent";
 import { MODELS, resolveModelId } from "@noma/shared";
-import { activeWebSearchPlugin, webSearch } from "@/lib/web-search";
-import { webFetch } from "@/lib/web-fetch";
 
 const VALID_PROMPT_KINDS: ReadonlySet<AgentSystemPromptKind> = new Set<AgentSystemPromptKind>([
   "connector-builder",
@@ -173,56 +171,6 @@ openaiProxy.get("/models", (c) => {
       owned_by: "noma",
     })),
   });
-});
-
-// ── Web Search ──────────────────────────────────────────────────
-
-openaiProxy.post("/tools/web_search", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body || typeof body.query !== "string") {
-    return c.json({ error: "query is required" }, 400);
-  }
-
-  if (!activeWebSearchPlugin()) {
-    return c.json({ error: "web search not configured" }, 501);
-  }
-
-  try {
-    const { results } = await webSearch(body.query, {
-      maxResults: body.maxResults,
-    });
-    if (results.length === 0) {
-      return c.json({ result: "no results" });
-    }
-    const formatted = results
-      .map((r, i) => `${i + 1}. ${r.title}\n${r.url}\n${r.snippet}`)
-      .join("\n\n");
-    return c.json({ result: formatted });
-  } catch (err) {
-    return c.json(
-      { error: `web_search failed: ${err instanceof Error ? err.message : String(err)}` },
-      500
-    );
-  }
-});
-
-// ── Web Fetch ───────────────────────────────────────────────────
-
-openaiProxy.post("/tools/web_fetch", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  if (!body || typeof body.url !== "string") {
-    return c.json({ error: "url is required" }, 400);
-  }
-
-  try {
-    const content = await webFetch(body.url);
-    return c.json({ result: content });
-  } catch (err) {
-    return c.json(
-      { error: `web_fetch failed: ${err instanceof Error ? err.message : String(err)}` },
-      500
-    );
-  }
 });
 
 export default openaiProxy;

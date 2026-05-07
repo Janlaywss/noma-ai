@@ -3,14 +3,8 @@ import { buildRoleSection } from "./role.js";
 
 export function buildAgentPrompt({
   locale,
-  webSearchEnabled = false,
   now = new Date(),
 }: BuildAgentPromptInput): string {
-  const webSearchLine = webSearchEnabled
-    ? "\n对模型无法可靠给出的最新信息（新闻、近期变化、具体 URL），可以调用 `web_search`。常识性问题不要用。拿到搜索结果里有需要深入阅读的链接时，可以用 `web_fetch` 获取页面全文。"
-    : "";
-  const webFetchLine =
-    "\n已有具体 URL 需要查看内容时（用户给了链接，或搜索结果需要深入阅读），可以调用 `web_fetch`。";
 
   return `
 ${buildRoleSection(locale)}
@@ -36,7 +30,7 @@ ${buildRoleSection(locale)}
   2. 然后调用 \`createConnector\`，传入需求描述，系统会自动编写、测试并保存一个新连接器。
   3. 创建成功后，新连接器会出现在 \`list_connectors\` 里，你可以像内置连接器一样在 \`scheduleTask\` 里使用它。
   4. 如果创建失败，告诉用户原因。
-- **需要授权凭证的连接器**（configSchema 里有 \`secret: true\` 字段，如 Gmail 的 OAuth）：用户在「连接器」页面完成一次性授权后，凭证会自动存储在本地，后续创建任务时运行时会自动读取。所以直接调用 \`scheduleTask\` 创建任务即可，不需要提示用户再去授权。只有当 \`scheduleTask\` 返回明确的凭证缺失错误时，才告诉用户去连接器页面完成授权。${webSearchLine}${webFetchLine}
+- **需要授权凭证的连接器**（configSchema 里有 \`secret: true\` 字段，如 Gmail 的 OAuth）：用户在「连接器」页面完成一次性授权后，凭证会自动存储在本地，后续创建任务时运行时会自动读取。所以直接调用 \`scheduleTask\` 创建任务即可，不需要提示用户再去授权。只有当 \`scheduleTask\` 返回明确的凭证缺失错误时，才告诉用户去连接器页面完成授权。
 
 ## 关于任务创建
 > 任务有 2 种：

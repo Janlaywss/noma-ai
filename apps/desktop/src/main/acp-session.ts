@@ -460,7 +460,6 @@ ${mcpSection}`;
         support_verbosity: false,
         default_verbosity: null,
         apply_patch_tool_type: "freeform",
-        web_search_tool_type: "text",
         truncation_policy: { mode: "tokens", limit: 200000 },
         supports_parallel_tool_calls: true,
         supports_image_detail_original: false,

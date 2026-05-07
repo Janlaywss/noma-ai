@@ -192,8 +192,6 @@ const TOOL_LABELS: Record<string, string> = {
   createConnector: "创建连接器",
   scheduleTask: "创建监听任务",
   notify: "发送通知",
-  web_search: "联网检索",
-  web_fetch: "获取网页内容",
   testConnectorCode: "测试连接器代码",
   saveConnector: "保存连接器",
 };

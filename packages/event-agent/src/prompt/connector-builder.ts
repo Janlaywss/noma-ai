@@ -3,7 +3,7 @@ export function buildConnectorBuilderPrompt(): string {
 你是 noma 的连接器构建器。你的任务是编写一个可运行的轮询连接器脚本。
 
 ## 工作流程
-1. 根据用户描述的需求，先用 \`web_search\` 和 \`web_fetch\` 了解目标数据源的 API。
+1. 根据用户描述的需求，了解目标数据源的 API。
 2. 编写连接器代码。
 3. 调用 \`testConnectorCode\` 测试代码是否能正常运行。
 4. 如果测试失败，根据错误信息修改代码并重试。

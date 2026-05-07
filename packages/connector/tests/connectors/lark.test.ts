@@ -5,50 +5,48 @@ import type { Connector } from "../../src/types.js";
 
 let conn: Connector | null = null;
 
+const mocks = vi.hoisted(() => ({
+  wsClose: vi.fn(),
+  chatGet: vi.fn(async () => ({ data: { name: "测试群" } })),
+  userGet: vi.fn(async () => ({ data: { user: { name: "张三" } } })),
+}));
+
+let capturedEventDispatcher: any = null;
+
+vi.mock("@larksuiteoapi/node-sdk", () => ({
+  EventDispatcher: class {
+    private handles: Record<string, Function> = {};
+    register(handles: Record<string, Function>) {
+      Object.assign(this.handles, handles);
+      capturedEventDispatcher = this;
+      return this;
+    }
+    async invoke(eventType: string, data: unknown) {
+      const handler = this.handles[eventType];
+      if (handler) await handler(data);
+    }
+  },
+  WSClient: class {
+    close: any;
+    constructor(_params: any) { this.close = mocks.wsClose; }
+    async start(_params: any) {}
+  },
+  Client: class {
+    im = { v1: { chat: { get: mocks.chatGet } } };
+    contact = { v3: { user: { get: mocks.userGet } } };
+    constructor(_params: any) {}
+  },
+  LoggerLevel: { info: 3 },
+}));
+
 afterEach(async () => {
   if (conn) {
     await conn.stop();
     conn = null;
   }
-  mockChatGet?.mockClear();
-  mockUserGet?.mockClear();
-  mockWSClose?.mockClear();
-});
-
-let capturedEventDispatcher: any = null;
-let mockWSClose: ReturnType<typeof vi.fn>;
-let mockChatGet: ReturnType<typeof vi.fn>;
-let mockUserGet: ReturnType<typeof vi.fn>;
-
-vi.mock("@larksuiteoapi/node-sdk", () => {
-  mockWSClose = vi.fn();
-  mockChatGet = vi.fn().mockResolvedValue({ data: { name: "测试群" } });
-  mockUserGet = vi.fn().mockResolvedValue({ data: { user: { name: "张三" } } });
-  return {
-    EventDispatcher: class {
-      private handles: Record<string, Function> = {};
-      register(handles: Record<string, Function>) {
-        Object.assign(this.handles, handles);
-        capturedEventDispatcher = this;
-        return this;
-      }
-      async invoke(eventType: string, data: unknown) {
-        const handler = this.handles[eventType];
-        if (handler) await handler(data);
-      }
-    },
-    WSClient: class {
-      close: any;
-      constructor(_params: any) { this.close = mockWSClose; }
-      async start(_params: any) {}
-    },
-    Client: class {
-      im = { v1: { chat: { get: mockChatGet } } };
-      contact = { v3: { user: { get: mockUserGet } } };
-      constructor(_params: any) {}
-    },
-    LoggerLevel: { info: 3 },
-  };
+  mocks.chatGet.mockClear();
+  mocks.userGet.mockClear();
+  mocks.wsClose.mockClear();
 });
 
 function makeMessageEvent(overrides?: {
@@ -123,8 +121,8 @@ describe("lark connector — 飞书消息监听", () => {
         chat_type: "group",
       },
     });
-    expect(mockChatGet).toHaveBeenCalledWith({ path: { chat_id: "oc_chat1" } });
-    expect(mockUserGet).toHaveBeenCalledWith({
+    expect(mocks.chatGet).toHaveBeenCalledWith({ path: { chat_id: "oc_chat1" } });
+    expect(mocks.userGet).toHaveBeenCalledWith({
       path: { user_id: "ou_user1" },
       params: { user_id_type: "open_id" },
     });
@@ -143,7 +141,7 @@ describe("lark connector — 飞书消息监听", () => {
       makeMessageEvent({ chatType: "p2p" }),
     );
 
-    expect(mockChatGet).not.toHaveBeenCalled();
+    expect(mocks.chatGet).not.toHaveBeenCalled();
     expect(events[0]?.payload).toMatchObject({
       chat_name: "",
       sender_name: "张三",
@@ -167,13 +165,13 @@ describe("lark connector — 飞书消息监听", () => {
       makeMessageEvent(),
     );
 
-    expect(mockChatGet).toHaveBeenCalledTimes(1);
-    expect(mockUserGet).toHaveBeenCalledTimes(1);
+    expect(mocks.chatGet).toHaveBeenCalledTimes(1);
+    expect(mocks.userGet).toHaveBeenCalledTimes(1);
   });
 
   it("API 失败时 name 回退为空串，不阻塞事件", async () => {
-    mockChatGet.mockRejectedValueOnce(new Error("403"));
-    mockUserGet.mockRejectedValueOnce(new Error("403"));
+    mocks.chatGet.mockRejectedValueOnce(new Error("403"));
+    mocks.userGet.mockRejectedValueOnce(new Error("403"));
     const { ctx, events } = createMockContext();
     conn = larkDescriptor.create(
       { ...larkDescriptor.defaults, appId: "id", appSecret: "secret" },
@@ -227,10 +225,10 @@ describe("lark connector — 飞书消息监听", () => {
       "im.message.receive_v1",
       makeMessageEvent(),
     );
-    expect(mockChatGet).toHaveBeenCalledTimes(1);
+    expect(mocks.chatGet).toHaveBeenCalledTimes(1);
 
     conn.stop();
-    expect(mockWSClose).toHaveBeenCalled();
+    expect(mocks.wsClose).toHaveBeenCalled();
     expect(conn.status()).toMatchObject({ connected: false });
 
     // restart — cache was cleared so names should be fetched again
@@ -239,7 +237,7 @@ describe("lark connector — 飞书消息监听", () => {
       "im.message.receive_v1",
       makeMessageEvent(),
     );
-    expect(mockChatGet).toHaveBeenCalledTimes(2);
+    expect(mocks.chatGet).toHaveBeenCalledTimes(2);
   });
 
   it("descriptor 中 appSecret 是 secret + taskRequired", () => {
