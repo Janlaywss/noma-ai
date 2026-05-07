@@ -149,6 +149,15 @@
   "settings.displayLanguage": "Display language",
   "settings.displayLanguageHint": "Changes the language of menus, buttons, and Noma's voice. Restart not required.",
 
+  "settings.models": "Models",
+  "settings.agentModel": "Agent model",
+  "settings.agentModelHint": "Model used for conversational task creation. Must be a valid OpenRouter model ID.",
+  "settings.eventModel": "Event analysis model",
+  "settings.eventModelHint": "Model used for batched event evaluation. A lightweight model is recommended.",
+  "settings.modelPlaceholder": "e.g. anthropic/claude-sonnet-4",
+  "settings.modelSaved": "Saved",
+  "settings.modelRequired": "Model ID is required",
+
   "settings.data": "Data",
   "settings.clearData": "Clear data",
   "settings.clearDataHint": "Delete locally stored data. This action cannot be undone.",

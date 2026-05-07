@@ -40,6 +40,7 @@ import {
 } from "@noma/event-agent";
 import { featuredConnectorNames, CONNECTOR_REGISTRY } from "@noma/connector";
 import { getTaskManager } from "./task-manager.js";
+import { getAgentModel } from "./model-config.js";
 
 let bridge: CodexDirectBridge | null = null;
 let mcpBridgeHandle: McpBridgeHandle | null = null;
@@ -107,7 +108,7 @@ export function registerAcpSessionHandlers(config: {
     // ── Create direct bridge ────────────────────────────────
     bridge = new CodexDirectBridge({
       codexBin,
-      model: MODEL,
+      model: getAgentModel(),
       env: {
         CODEX_HOME: codexHome,
         OPENAI_API_KEY: apiKey,
@@ -377,8 +378,6 @@ function createDesktopToolSet() {
 
 // ── Codex config generation ─────────────────────────────────
 
-const MODEL = process.env.NOMA_AGENT_MODEL ?? "anthropic/claude-sonnet-4-20250514";
-
 function ensureCodexConfig(
   codexHome: string,
   serverUrl: string,
@@ -410,7 +409,8 @@ function ensureCodexConfig(
   }
 
   // Write config.toml
-  const toml = `model = "${MODEL}"
+  const model = getAgentModel();
+  const toml = `model = "${model}"
 model_provider = "noma"
 model_catalog_json = "${catalogPath}"
 model_instructions_file = "${instructionsPath}"
@@ -428,7 +428,7 @@ ${mcpSection}`;
   const catalog = {
     models: [
       {
-        slug: MODEL,
+        slug: model,
         display_name: "Claude Sonnet",
         description: "Noma model",
         default_reasoning_level: "high",

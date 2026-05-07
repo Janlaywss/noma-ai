@@ -22,10 +22,11 @@ import {
   type ConnectorUsageRow,
   type ConnectorDescriptor,
 } from "@noma/connector";
-import { buildEventAnalysisPrompt } from "@noma/event-agent";
+import { buildBatchEventAnalysisPrompt } from "@noma/event-agent";
 import { getDb } from "./db/index.js";
+import { getEventModel } from "./model-config.js";
 
-// ── Types ───────────��─────────────────────────────────────
+// ── Types ───────────────────────────────────────────────────
 
 export type ScheduleTaskInput = {
   title: string;
@@ -37,6 +38,14 @@ export type ScheduleTaskInput = {
 export type TaskManagerConfig = {
   /** Used by proactive messaging to send events back to the UI. */
   getMainWindow: () => BrowserWindow | null;
+};
+
+type QueuedEvent = {
+  id: string;
+  source: string;
+  type: string;
+  payload: Record<string, unknown> | null;
+  createdAt: string;
 };
 
 // ── Singleton ────────���────────────────────────────────────
@@ -59,10 +68,13 @@ export function initTaskManager(config: TaskManagerConfig): TaskManager {
 export class TaskManager {
   private runtime: ConnectorRuntime;
   private config: TaskManagerConfig;
+  private eventQueue = new Map<string, QueuedEvent[]>();
+  private analysisTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: TaskManagerConfig) {
     this.config = config;
     this.runtime = new ConnectorRuntime(this.createRuntimeHost());
+    this.startAnalysisLoop();
   }
 
   // ── Public API ────────────────────────────────────────
@@ -157,6 +169,8 @@ export class TaskManager {
       await this.runtime.removeUsage(usage.id);
     }
 
+    this.eventQueue.delete(taskId);
+
     db.prepare(
       "UPDATE tasks SET status = 'done', updated_at = datetime('now') WHERE id = ?"
     ).run(taskId);
@@ -193,6 +207,13 @@ export class TaskManager {
       .prepare("SELECT session_id FROM tasks WHERE id = ?")
       .get(taskId) as { session_id: string | null } | undefined;
     return row?.session_id ?? null;
+  }
+
+  destroy(): void {
+    if (this.analysisTimer) {
+      clearInterval(this.analysisTimer);
+      this.analysisTimer = null;
+    }
   }
 
   // ── Internal ──────────────���───────────────────────────
@@ -358,17 +379,17 @@ export class TaskManager {
         .prepare("SELECT id, created_at FROM events WHERE rowid = ?")
         .get(insertResult.lastInsertRowid) as { id: string; created_at: string };
 
-      // Ask event-agent LLM whether this event deserves user attention
+      // Queue for batch analysis (60-second cycle)
       if (task.session_id) {
-        this.evaluateEvent(task, {
+        const queue = this.eventQueue.get(task.id) ?? [];
+        queue.push({
           id: eventRow.id,
           source,
           type: ev.type,
           payload: ev.payload ?? null,
           createdAt: eventRow.created_at,
-        }).catch((err) => {
-          console.warn(`[task-manager] event evaluation failed:`, err);
         });
+        this.eventQueue.set(task.id, queue);
       }
     }
 
@@ -384,33 +405,74 @@ export class TaskManager {
     }
   }
 
-  /**
-   * Ask the event-agent LLM to evaluate whether an event is worth notifying
-   * the user, based on the task's prompt (standing focus lens).
-   *
-   * The LLM either:
-   *  - calls `notify` → we push that message to the user's session
-   *  - replies "忽略" → we do nothing (event is still in inbox for browsing)
-   */
-  private async evaluateEvent(
-    task: { id: string; title: string; prompt: string; session_id: string | null },
-    event: {
-      id: string;
-      source: string;
-      type: string;
-      payload: Record<string, unknown> | null;
-      createdAt: string;
+  private startAnalysisLoop(): void {
+    this.analysisTimer = setInterval(() => {
+      this.runBatchAnalysis().catch((err) => {
+        console.warn("[task-manager] batch analysis failed:", err);
+      });
+    }, 60_000);
+  }
+
+  private async runBatchAnalysis(): Promise<void> {
+    const snapshot = new Map(this.eventQueue);
+    this.eventQueue.clear();
+
+    this.pruneOldSummaries();
+
+    const db = getDb();
+    for (const [taskId, events] of snapshot) {
+      if (events.length === 0) continue;
+
+      const task = db
+        .prepare(
+          "SELECT id, title, prompt, session_id FROM tasks WHERE id = ? AND status = 'running'"
+        )
+        .get(taskId) as
+        | {
+            id: string;
+            title: string;
+            prompt: string;
+            session_id: string | null;
+          }
+        | undefined;
+
+      if (!task?.session_id) continue;
+
+      const recentSummaries = this.getRecentSummaries(taskId);
+
+      try {
+        await this.evaluateBatchEvents(task, events, recentSummaries);
+      } catch (err) {
+        console.warn(
+          `[task-manager] batch evaluation failed for task ${taskId}:`,
+          err
+        );
+      }
     }
+  }
+
+  private async evaluateBatchEvents(
+    task: {
+      id: string;
+      title: string;
+      prompt: string;
+      session_id: string | null;
+    },
+    events: QueuedEvent[],
+    recentSummaries: Array<{ summary: string; createdAt: string }>
   ): Promise<void> {
     if (!task.session_id) return;
 
     const serverUrl =
       process.env.NOMA_SERVER_URL ?? "http://localhost:3677";
-    const userPrompt = buildEventAnalysisPrompt({ task, event });
+    const userPrompt = buildBatchEventAnalysisPrompt({
+      task,
+      events,
+      recentSummaries,
+    });
 
-    // Lightweight single-turn LLM call with only the notify tool
     const body = {
-      model: process.env.NOMA_EVENT_MODEL ?? "anthropic/claude-sonnet-4-20250514",
+      model: getEventModel(),
       messages: [{ role: "user", content: userPrompt }],
       tools: [
         {
@@ -421,7 +483,10 @@ export class TaskManager {
             parameters: {
               type: "object",
               properties: {
-                message: { type: "string", description: "The notification message." },
+                message: {
+                  type: "string",
+                  description: "The notification message.",
+                },
                 level: {
                   type: "string",
                   enum: ["info", "nudge", "alert"],
@@ -429,6 +494,25 @@ export class TaskManager {
                 },
               },
               required: ["message"],
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "summary",
+            description:
+              "Summarize this batch of events for the timeline. Must be called exactly once.",
+            parameters: {
+              type: "object",
+              properties: {
+                text: {
+                  type: "string",
+                  description:
+                    "1-2 sentence summary capturing key values and trends.",
+                },
+              },
+              required: ["text"],
             },
           },
         },
@@ -462,34 +546,50 @@ export class TaskManager {
       const choice = result.choices?.[0]?.message;
       if (!choice) return;
 
-      // Check if the agent called notify
-      const notifyCall = choice.tool_calls?.find(
-        (tc) => tc.function?.name === "notify"
-      );
+      const notifyCalls =
+        choice.tool_calls?.filter(
+          (tc) => tc.function?.name === "notify"
+        ) ?? [];
+      for (const call of notifyCalls) {
+        if (call.function?.arguments) {
+          try {
+            const args = JSON.parse(call.function.arguments) as {
+              message?: string;
+              level?: "info" | "nudge" | "alert";
+            };
+            if (args.message) {
+              this.sendProactiveMessage(
+                task.session_id!,
+                args.message,
+                args.level ?? "nudge"
+              );
+              console.log(
+                `[event-agent] notify → ${task.title}: ${args.message.slice(0, 60)}`
+              );
+            }
+          } catch {
+            // malformed tool call args
+          }
+        }
+      }
 
-      if (notifyCall?.function?.arguments) {
+      const summaryCall = choice.tool_calls?.find(
+        (tc) => tc.function?.name === "summary"
+      );
+      if (summaryCall?.function?.arguments) {
         try {
-          const args = JSON.parse(notifyCall.function.arguments) as {
-            message?: string;
-            level?: "info" | "nudge" | "alert";
+          const args = JSON.parse(summaryCall.function.arguments) as {
+            text?: string;
           };
-          if (args.message) {
-            this.sendProactiveMessage(
-              task.session_id!,
-              args.message,
-              args.level ?? "nudge"
-            );
+          if (args.text) {
+            this.saveSummary(task.id, args.text, events.length);
             console.log(
-              `[event-agent] notify → ${task.title}: ${args.message.slice(0, 60)}`
+              `[event-agent] summary → ${task.title}: ${args.text.slice(0, 80)}`
             );
           }
         } catch {
-          // malformed tool call args — skip
+          // malformed tool call args
         }
-      } else {
-        // Agent decided to ignore — log for debugging
-        const text = choice.content?.slice(0, 40) ?? "(no content)";
-        console.log(`[event-agent] skip → ${task.title}: ${text}`);
       }
     } catch (err) {
       console.warn(
@@ -497,6 +597,41 @@ export class TaskManager {
         err instanceof Error ? err.message : err
       );
     }
+  }
+
+  private saveSummary(
+    taskId: string,
+    summary: string,
+    eventsCount: number
+  ): void {
+    const db = getDb();
+    db.prepare(
+      "INSERT INTO task_summaries (task_id, summary, events_analyzed) VALUES (?, ?, ?)"
+    ).run(taskId, summary, eventsCount);
+  }
+
+  private getRecentSummaries(
+    taskId: string
+  ): Array<{ summary: string; createdAt: string }> {
+    const db = getDb();
+    const rows = db
+      .prepare(
+        `SELECT summary, created_at FROM task_summaries
+         WHERE task_id = ? AND created_at > datetime('now', '-6 hours')
+         ORDER BY created_at ASC`
+      )
+      .all(taskId) as Array<{ summary: string; created_at: string }>;
+    return rows.map((r) => ({
+      summary: r.summary,
+      createdAt: r.created_at,
+    }));
+  }
+
+  private pruneOldSummaries(): void {
+    const db = getDb();
+    db.prepare(
+      "DELETE FROM task_summaries WHERE created_at < datetime('now', '-6 hours')"
+    ).run();
   }
 
   /**

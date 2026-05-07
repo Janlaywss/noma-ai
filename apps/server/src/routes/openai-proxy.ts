@@ -33,6 +33,9 @@ openaiProxy.post("/chat/completions", async (c) => {
 
   const requestedModel = body.model ?? "";
   const modelId = resolveModelId(requestedModel);
+  if (!modelId) {
+    return c.json({ error: { message: `invalid model: ${requestedModel}` } }, 400);
+  }
   const stream = body.stream ?? false;
 
   const requestedKind: AgentSystemPromptKind | undefined =
@@ -111,6 +114,9 @@ openaiProxy.post("/responses", async (c) => {
 
   const requestedModel = body.model ?? "";
   const modelId = resolveModelId(requestedModel);
+  if (!modelId) {
+    return c.json({ error: { message: `invalid model: ${requestedModel}` } }, 400);
+  }
 
   const openrouterKey = process.env.OPENROUTER_API_KEY ?? "";
   const baseURL =

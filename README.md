@@ -14,8 +14,8 @@ Noma connects to data sources (Gmail, financial news, etc.), monitors them in th
 
 - **Conversational task creation** — Tell the agent what to watch in natural language. It picks the right connectors and parameters automatically.
 - **Connector ecosystem** — Built-in connectors for Gmail and Jin10 (financial news). The agent can also create custom connectors on the fly for any public API.
-- **Event-driven notifications** — Connector events are evaluated by a lightweight LLM call. Only events that match your task's focus lens trigger notifications — the rest stay in the inbox silently.
-- **Local-first architecture** — Sessions, messages, tasks, and events are stored in local SQLite. The server only handles OAuth, LLM proxy, and cross-device sync.
+- **Batched event analysis** — Connector events are queued and evaluated in 60-second batches by an LLM call. Each batch produces a timeline summary; only events that match your task's focus lens trigger notifications — the rest stay in the inbox silently. Summaries older than 6 hours are automatically pruned.
+- **Local-first architecture** — Sessions, messages, tasks, and events are stored in local SQLite. The server uses its own SQLite instance for config and session memory — no external database required.
 - **Frameless native UI** — Clean Electron app with dark/light themes and i18n (English + Chinese).
 
 ## Architecture
@@ -30,7 +30,7 @@ User ──► Desktop (Electron + React + SQLite)
            │     └── custom connectors (agent-created)
            └── Event Agent (LLM evaluates events → notify or skip)
 
-Desktop ──► Server (Hono + Supabase)
+Desktop ──► Server (Hono + SQLite)
               ├── LLM Proxy (OpenRouter → Claude/GPT/Gemini)
               ├── OAuth (Google for Gmail)
               └── Connector config storage
@@ -41,7 +41,7 @@ Desktop ──► Server (Hono + Supabase)
 ```
 apps/
   desktop/       Vite + React + Electron
-  server/        Hono + Supabase backend
+  server/        Hono + SQLite backend
   eval/          Automated agent & connector evaluation
 packages/
   agent/         CodexDirectBridge, MCP bridge
@@ -60,7 +60,6 @@ packages/
 - **pnpm** >= 9
 - **[Codex CLI](https://github.com/openai/codex)** — `npm i -g @openai/codex`
 - **[ngrok](https://ngrok.com/)** — for OAuth callbacks (free tier works)
-- **Supabase** project — [create one](https://supabase.com/dashboard)
 
 ### 1. Install & Build
 
@@ -81,23 +80,16 @@ Edit `apps/server/.env` with your credentials:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `SUPABASE_URL` | Yes | Your Supabase project URL |
-| `SUPABASE_SECRET_KEY` | Yes | Supabase service role key (bypasses RLS) |
 | `OPENROUTER_API_KEY` | Yes | [OpenRouter](https://openrouter.ai/) API key for LLM access |
-| `NOMA_AGENT_MODEL` | Optional | Main agent model (default: `anthropic/claude-sonnet-4-20250514`) |
-| `NOMA_EVENT_MODEL` | Optional | Event evaluation model (default: `anthropic/claude-sonnet-4-20250514`) |
 | `GOOGLE_CLIENT_ID` | For Gmail | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | For Gmail | Google OAuth client secret |
 | `PUBLIC_URL` | For Gmail | Your ngrok domain, e.g. `https://your-app.ngrok-free.dev` |
 
-### 3. Set Up the Database
+The server SQLite database is auto-created at `data/server.db` on first start — no manual setup required.
 
-Run the schema in your Supabase SQL Editor:
+### 3. Configure Models
 
-```sql
--- File: supabase/migrations/00000000000000_init.sql
--- Copy and execute the contents in your Supabase Dashboard → SQL Editor
-```
+Launch the desktop app, go to **Settings → Models**, and set the Agent model and Event analysis model (must be valid [OpenRouter model IDs](https://openrouter.ai/models)). The app will not start agent sessions until models are configured.
 
 ### 4. Run
 
@@ -132,7 +124,7 @@ The agent can also create **custom connectors** at runtime for any public API �
 ## Tech Stack
 
 - **Desktop**: Electron + Vite + React + better-sqlite3
-- **Server**: Hono + Supabase (Postgres)
+- **Server**: Hono + better-sqlite3
 - **Agent**: OpenAI Codex CLI + MCP protocol
 - **LLM**: OpenRouter (Claude, GPT, Gemini, etc.)
 - **Language**: TypeScript throughout

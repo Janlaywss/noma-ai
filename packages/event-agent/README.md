@@ -5,17 +5,25 @@
 ## 职责
 
 - 定义 `AgentRunEvent`、`AgentToolSchema`、`AgentToolCall`、`AgentHooks` 等协议。
-- 提供 prompt 组装能力。
+- 提供单条和批量事件分析的 prompt 组装能力（`buildEventAnalysisPrompt`、`buildBatchEventAnalysisPrompt`）。
 - 处理 LLM streaming、SSE 解析和工具调用。
 - 提供 ReAct/runtime 支撑事件分析与任务执行。
 - 复用 `@noma/shared` 的模型、工具 schema 和共享类型。
+
+### 批量事件分析
+
+桌面端每 60 秒触发一次批量分析。`buildBatchEventAnalysisPrompt` 接收一批事件和最近的 timeline summary，指导 LLM：
+
+- 调用 `notify`（0 次或多次）对需要关注的事件发通知。
+- 调用 `summary`（恰好 1 次）输出本批次的综合摘要，存入 task memory 形成时间线。
+- 超过 6 小时的 summary 自动丢弃。
 
 ## 非职责
 
 - 不直接依赖 Electron renderer。
 - 不直接启动连接器。
 - 不保存 ACP 会话正文。
-- 不直接写 Supabase 业务表。
+- 不直接写数据库。
 
 ## 主要文件
 

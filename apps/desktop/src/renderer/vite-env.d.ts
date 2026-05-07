@@ -233,6 +233,11 @@ type NomaDbApi = {
     counts(): Promise<{ tasks: number; sessions: number; messages: number; events: number }>;
     execute(opts: { tasks?: boolean; sessions?: boolean; events?: boolean }): Promise<{ ok: boolean }>;
   };
+  settings: {
+    get(key: string): Promise<string | null>;
+    set(key: string, value: string): Promise<{ ok: boolean }>;
+    getAll(prefix: string): Promise<Record<string, string>>;
+  };
 };
 
 // ── Task event types ──────────────────────────────────────

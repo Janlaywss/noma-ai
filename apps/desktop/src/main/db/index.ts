@@ -130,6 +130,21 @@ const MIGRATIONS = [
     `,
   },
   {
+    name: "005_task_summaries",
+    sql: `
+      CREATE TABLE IF NOT EXISTS task_summaries (
+        id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        summary TEXT NOT NULL,
+        events_analyzed INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_task_summaries_task ON task_summaries(task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_summaries_created ON task_summaries(created_at);
+    `,
+  },
+  {
     name: "004_chat_sessions",
     sql: `
       -- Chat sessions persist across app restarts
@@ -155,6 +170,15 @@ const MIGRATIONS = [
       );
 
       CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id, created_at ASC);
+    `,
+  },
+  {
+    name: "006_settings",
+    sql: `
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
     `,
   },
 ];

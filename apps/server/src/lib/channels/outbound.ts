@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getDb } from "@/db/index";
 import {
   larkSendText,
   larkTenantAccessToken,
@@ -6,28 +6,23 @@ import {
 import { slackSendText } from "./slack";
 import { telegramSendText } from "./telegram";
 
-/**
- * Fan out a message to every channel the user has enabled + configured.
- * Call this from server-side code (notify tool, agent loop) whenever the
- * user should see something in their IM as well as in the web UI.
- *
- * Errors per channel are swallowed (logged) so a misconfigured Slack token
- * can't block a successful Lark delivery.
- */
 export async function fanOutToChannels(
   userId: string,
   text: string
 ): Promise<void> {
-  const supabase = supabaseAdmin();
-  const { data: rows } = await supabase
-    .from("channel_configs")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("enabled", true);
-  if (!rows) return;
+  const db = getDb();
+  const rows = db
+    .prepare(
+      "SELECT * FROM channel_configs WHERE user_id = ? AND enabled = 1"
+    )
+    .all(userId) as Array<Record<string, unknown>>;
 
   for (const row of rows) {
-    const cfg = (row.config ?? {}) as Record<string, unknown>;
+    const cfg = (
+      typeof row.config === "string"
+        ? JSON.parse(row.config)
+        : row.config ?? {}
+    ) as Record<string, unknown>;
     try {
       if (row.channel_name === "lark") {
         const appId = str(cfg.appId);
@@ -48,17 +43,20 @@ export async function fanOutToChannels(
         await telegramSendText({ botToken, chatId, text });
       }
     } catch (e) {
-      await supabase
-        .from("channel_configs")
-        .update({
-          status: {
-            ...(row.status ?? {}),
-            lastError: e instanceof Error ? e.message : String(e),
-            lastErrorAt: new Date().toISOString(),
-          },
-        })
-        .eq("user_id", userId)
-        .eq("channel_name", row.channel_name);
+      const status = typeof row.status === "string"
+        ? JSON.parse(row.status)
+        : row.status ?? {};
+      db.prepare(
+        "UPDATE channel_configs SET status = ? WHERE user_id = ? AND channel_name = ?"
+      ).run(
+        JSON.stringify({
+          ...status,
+          lastError: e instanceof Error ? e.message : String(e),
+          lastErrorAt: new Date().toISOString(),
+        }),
+        userId,
+        row.channel_name as string
+      );
     }
   }
 }

@@ -1,20 +1,13 @@
 import { localUserRouter } from "@/middleware/local-user";
 
-/**
- * User-scoped CRUD for `channel_configs` (one row per user × channel_name).
- * Kept separate from `/api/channels/:name/webhook/:slug`, which is a
- * public HMAC-verified inbound webhook.
- */
 const channelConfigs = localUserRouter();
 
 channelConfigs.get("/", async (c) => {
-  const { data, error } = await c
-    .get("supabase")
-    .from("channel_configs")
-    .select("*")
-    .eq("user_id", c.get("userId"));
-  if (error) return c.text(error.message, 500);
-  return c.json(data ?? []);
+  const db = c.get("db");
+  const rows = db
+    .prepare("SELECT * FROM channel_configs WHERE user_id = ?")
+    .all(c.get("userId")) as Array<Record<string, unknown>>;
+  return c.json(rows.map(parseRow));
 });
 
 channelConfigs.put("/:name", async (c) => {
@@ -23,21 +16,67 @@ channelConfigs.put("/:name", async (c) => {
     config?: Record<string, unknown>;
   } | null;
   if (!body) return c.text("missing body", 400);
-  const patch: Record<string, unknown> = {
-    user_id: c.get("userId"),
-    channel_name: c.req.param("name"),
-    updated_at: new Date().toISOString(),
-  };
-  if (body.enabled !== undefined) patch.enabled = body.enabled;
-  if (body.config !== undefined) patch.config = body.config;
-  const { data, error } = await c
-    .get("supabase")
-    .from("channel_configs")
-    .upsert(patch, { onConflict: "user_id,channel_name" })
-    .select("*")
-    .single();
-  if (error) return c.text(error.message, 500);
-  return c.json(data);
+
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const name = c.req.param("name");
+  const now = new Date().toISOString();
+
+  const existing = db
+    .prepare(
+      "SELECT * FROM channel_configs WHERE user_id = ? AND channel_name = ?"
+    )
+    .get(userId, name) as Record<string, unknown> | undefined;
+
+  if (existing) {
+    const sets: string[] = ["updated_at = ?"];
+    const vals: unknown[] = [now];
+    if (body.enabled !== undefined) {
+      sets.push("enabled = ?");
+      vals.push(body.enabled ? 1 : 0);
+    }
+    if (body.config !== undefined) {
+      sets.push("config = ?");
+      vals.push(JSON.stringify(body.config));
+    }
+    vals.push(userId, name);
+    db.prepare(
+      `UPDATE channel_configs SET ${sets.join(", ")} WHERE user_id = ? AND channel_name = ?`
+    ).run(...vals);
+  } else {
+    db.prepare(
+      `INSERT INTO channel_configs (user_id, channel_name, enabled, config, updated_at)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run(
+      userId,
+      name,
+      body.enabled ? 1 : 0,
+      JSON.stringify(body.config ?? {}),
+      now
+    );
+  }
+
+  const row = db
+    .prepare(
+      "SELECT * FROM channel_configs WHERE user_id = ? AND channel_name = ?"
+    )
+    .get(userId, name) as Record<string, unknown>;
+  return c.json(parseRow(row));
 });
+
+function parseRow(r: Record<string, unknown>) {
+  return {
+    ...r,
+    enabled: r.enabled === 1 || r.enabled === true,
+    config:
+      typeof r.config === "string"
+        ? JSON.parse(r.config)
+        : r.config ?? {},
+    status:
+      typeof r.status === "string"
+        ? JSON.parse(r.status)
+        : r.status ?? {},
+  };
+}
 
 export default channelConfigs;

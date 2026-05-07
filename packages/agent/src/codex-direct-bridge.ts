@@ -106,13 +106,14 @@ export class CodexDirectBridge {
       // Resume existing session
       // Note: `codex exec resume` does NOT accept -C; spawn's cwd handles it.
       args.push("resume", "--json", "--dangerously-bypass-approvals-and-sandbox");
-      args.push("-m", this.config.model);
       args.push("--skip-git-repo-check");
       args.push(threadId, text);
     } else {
       // New session
+      // Do NOT pass -m here — the model is set in config.toml along with
+      // the custom model_provider. Passing -m causes codex to bypass
+      // the custom provider and route the request to the default (ChatGPT).
       args.push("--json", "--dangerously-bypass-approvals-and-sandbox");
-      args.push("-m", this.config.model);
       args.push("--skip-git-repo-check");
       if (this.config.cwd) args.push("-C", this.config.cwd);
       args.push(text);
@@ -125,10 +126,11 @@ export class CodexDirectBridge {
       };
 
       const proc = spawn(this.config.codexBin, args, {
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: ["pipe", "pipe", "pipe"],
         env: env as NodeJS.ProcessEnv,
         cwd: this.config.cwd,
       });
+      proc.stdin?.end();
       this.currentProc = proc;
 
       let cumulativeText = "";
@@ -136,17 +138,16 @@ export class CodexDirectBridge {
       let errOutput = "";
 
       // ── stderr → log ────────────────
+      const STDERR_NOISE = [
+        "TSM Adjust",
+        "IMKCFRunLoop",
+        "Reading additional input from stdin",
+      ];
       proc.stderr?.on("data", (chunk: Buffer) => {
         const line = chunk.toString().trim();
-        if (line) {
+        if (line && !STDERR_NOISE.some((n) => line.includes(n))) {
           errOutput += line + "\n";
-          // Only log significant lines
-          if (
-            !line.includes("TSM Adjust") &&
-            !line.includes("IMKCFRunLoop")
-          ) {
-            console.log(`[codex:err] ${line}`);
-          }
+          console.log(`[codex:err] ${line}`);
         }
       });
 

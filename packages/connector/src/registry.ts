@@ -41,7 +41,7 @@ export function builtinConnectorNames(): string[] {
  * registry (and can still be used programmatically) but won't appear in
  * the desktop front-end.
  */
-export const FEATURED_CONNECTORS: string[] = ["jin10", "gmail"];
+export const FEATURED_CONNECTORS: string[] = ["jin10", "gmail", "lark"];
 
 export function featuredConnectorNames(): string[] {
   return FEATURED_CONNECTORS.filter((name) => name in CONNECTOR_REGISTRY);

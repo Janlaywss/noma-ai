@@ -1,33 +1,26 @@
 import { Hono } from "hono";
 import { withLocalUser, type LocalUserEnv } from "@/middleware/local-user";
 
-// Local user context is applied per-route, NOT via `*`. The OAuth callback at
-// /api/connectors/gmail/oauth/callback (registered in connectors-oauth.ts and
-// also mounted at /api/connectors) must stay callable by Google.
 const connectors = new Hono<LocalUserEnv>();
 
 connectors.get("/", withLocalUser, async (c) => {
-  const { data, error } = await c
-    .get("supabase")
-    .from("connector_configs")
-    .select("*")
-    .eq("user_id", c.get("userId"));
-  if (error) return c.text(error.message, 500);
-  return c.json(data ?? []);
+  const db = c.get("db");
+  const rows = db
+    .prepare("SELECT * FROM connector_configs WHERE user_id = ?")
+    .all(c.get("userId")) as Array<Record<string, unknown>>;
+  return c.json(rows.map(parseConfigRow));
 });
 
-/** Single-connector read. Used by the config form (needs the stored
- *  `config` JSON) and the detail view (needs only `enabled`). */
 connectors.get("/:name", withLocalUser, async (c) => {
-  const { data, error } = await c
-    .get("supabase")
-    .from("connector_configs")
-    .select("*")
-    .eq("user_id", c.get("userId"))
-    .eq("connector_name", c.req.param("name"))
-    .maybeSingle();
-  if (error) return c.text(error.message, 500);
-  return c.json(data ?? null);
+  const db = c.get("db");
+  const row = db
+    .prepare(
+      "SELECT * FROM connector_configs WHERE user_id = ? AND connector_name = ?"
+    )
+    .get(c.get("userId"), c.req.param("name")) as
+    | Record<string, unknown>
+    | undefined;
+  return c.json(row ? parseConfigRow(row) : null);
 });
 
 connectors.put("/:name", withLocalUser, async (c) => {
@@ -37,41 +30,71 @@ connectors.put("/:name", withLocalUser, async (c) => {
     status?: Record<string, unknown>;
   } | null;
   if (!body) return c.text("missing body", 400);
-  const patch: Record<string, unknown> = {
-    user_id: c.get("userId"),
-    connector_name: c.req.param("name"),
-    updated_at: new Date().toISOString(),
-  };
-  if (body.enabled !== undefined) patch.enabled = body.enabled;
-  if (body.config !== undefined) patch.config = body.config;
-  // status writes come from the local tick runner persisting cursors
-  // (lastModified, alertedAt, tokenExp…) — needed so a second Electron
-  // instance on another device doesn't re-emit events the first one
-  // already handled.
-  if (body.status !== undefined) patch.status = body.status;
-  const { data, error } = await c
-    .get("supabase")
-    .from("connector_configs")
-    .upsert(patch, { onConflict: "user_id,connector_name" })
-    .select("*")
-    .single();
-  if (error) return c.text(error.message, 500);
-  return c.json(data);
+
+  const db = c.get("db");
+  const userId = c.get("userId");
+  const name = c.req.param("name");
+  const now = new Date().toISOString();
+
+  const existing = db
+    .prepare(
+      "SELECT * FROM connector_configs WHERE user_id = ? AND connector_name = ?"
+    )
+    .get(userId, name) as Record<string, unknown> | undefined;
+
+  if (existing) {
+    const sets: string[] = ["updated_at = ?"];
+    const vals: unknown[] = [now];
+    if (body.enabled !== undefined) {
+      sets.push("enabled = ?");
+      vals.push(body.enabled ? 1 : 0);
+    }
+    if (body.config !== undefined) {
+      sets.push("config = ?");
+      vals.push(JSON.stringify(body.config));
+    }
+    if (body.status !== undefined) {
+      sets.push("status = ?");
+      vals.push(JSON.stringify(body.status));
+    }
+    vals.push(userId, name);
+    db.prepare(
+      `UPDATE connector_configs SET ${sets.join(", ")} WHERE user_id = ? AND connector_name = ?`
+    ).run(...vals);
+  } else {
+    db.prepare(
+      `INSERT INTO connector_configs (user_id, connector_name, enabled, config, status, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(
+      userId,
+      name,
+      body.enabled ? 1 : 0,
+      JSON.stringify(body.config ?? {}),
+      JSON.stringify(body.status ?? {}),
+      now
+    );
+  }
+
+  const row = db
+    .prepare(
+      "SELECT * FROM connector_configs WHERE user_id = ? AND connector_name = ?"
+    )
+    .get(userId, name) as Record<string, unknown>;
+  return c.json(parseConfigRow(row));
 });
 
 // ─── per-connector key-value storage ───────────────────────────
 
 connectors.get("/:name/storage/:key", withLocalUser, async (c) => {
-  const { data, error } = await c
-    .get("supabase")
-    .from("connector_storage")
-    .select("value")
-    .eq("user_id", c.get("userId"))
-    .eq("connector_name", c.req.param("name"))
-    .eq("key", c.req.param("key"))
-    .maybeSingle();
-  if (error) return c.text(error.message, 500);
-  return c.json({ value: data?.value ?? null });
+  const db = c.get("db");
+  const row = db
+    .prepare(
+      "SELECT value FROM connector_storage WHERE user_id = ? AND connector_name = ? AND key = ?"
+    )
+    .get(c.get("userId"), c.req.param("name"), c.req.param("key")) as
+    | { value: string }
+    | undefined;
+  return c.json({ value: row?.value ?? null });
 });
 
 connectors.put("/:name/storage/:key", withLocalUser, async (c) => {
@@ -81,33 +104,44 @@ connectors.put("/:name/storage/:key", withLocalUser, async (c) => {
   if (!body || typeof body.value !== "string") {
     return c.text("missing string value", 400);
   }
-  const { error } = await c
-    .get("supabase")
-    .from("connector_storage")
-    .upsert(
-      {
-        user_id: c.get("userId"),
-        connector_name: c.req.param("name"),
-        key: c.req.param("key"),
-        value: body.value,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,connector_name,key" }
-    );
-  if (error) return c.text(error.message, 500);
+
+  const db = c.get("db");
+  db.prepare(
+    `INSERT INTO connector_storage (user_id, connector_name, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(user_id, connector_name, key)
+     DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+  ).run(
+    c.get("userId"),
+    c.req.param("name"),
+    c.req.param("key"),
+    body.value,
+    new Date().toISOString()
+  );
   return c.body(null, 204);
 });
 
 connectors.delete("/:name/storage/:key", withLocalUser, async (c) => {
-  const { error } = await c
-    .get("supabase")
-    .from("connector_storage")
-    .delete()
-    .eq("user_id", c.get("userId"))
-    .eq("connector_name", c.req.param("name"))
-    .eq("key", c.req.param("key"));
-  if (error) return c.text(error.message, 500);
+  const db = c.get("db");
+  db.prepare(
+    "DELETE FROM connector_storage WHERE user_id = ? AND connector_name = ? AND key = ?"
+  ).run(c.get("userId"), c.req.param("name"), c.req.param("key"));
   return c.body(null, 204);
 });
+
+function parseConfigRow(r: Record<string, unknown>) {
+  return {
+    ...r,
+    enabled: r.enabled === 1 || r.enabled === true,
+    config:
+      typeof r.config === "string"
+        ? JSON.parse(r.config)
+        : r.config ?? {},
+    status:
+      typeof r.status === "string"
+        ? JSON.parse(r.status)
+        : r.status ?? {},
+  };
+}
 
 export default connectors;

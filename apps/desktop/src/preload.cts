@@ -115,6 +115,13 @@ contextBridge.exposeInMainWorld("noma", {
       execute: (opts: { tasks?: boolean; sessions?: boolean; events?: boolean }) =>
         ipcRenderer.invoke("db:clearData", opts),
     },
+    settings: {
+      get: (key: string) => ipcRenderer.invoke("db:settings:get", key),
+      set: (key: string, value: string) =>
+        ipcRenderer.invoke("db:settings:set", key, value),
+      getAll: (prefix: string) =>
+        ipcRenderer.invoke("db:settings:getAll", prefix),
+    },
   },
 
   // ── Task events (push from main → renderer) ────────────────

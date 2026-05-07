@@ -149,6 +149,15 @@
   "settings.displayLanguage": "显示语言",
   "settings.displayLanguageHint": "更改菜单、按钮和 Noma 回复的语言。无需重启。",
 
+  "settings.models": "模型",
+  "settings.agentModel": "Agent 模型",
+  "settings.agentModelHint": "用于对话式任务创建的模型，必须是有效的 OpenRouter 模型 ID。",
+  "settings.eventModel": "事件分析模型",
+  "settings.eventModelHint": "用于批量事件评估的模型，推荐使用轻量模型。",
+  "settings.modelPlaceholder": "如 anthropic/claude-sonnet-4",
+  "settings.modelSaved": "已保存",
+  "settings.modelRequired": "模型 ID 不能为空",
+
   "settings.data": "数据",
   "settings.clearData": "清空数据",
   "settings.clearDataHint": "删除本地存储的数据。此操作不可恢复。",

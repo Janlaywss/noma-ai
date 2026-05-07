@@ -10,6 +10,7 @@ import {
   type CodexHandle,
 } from "@noma/agent";
 import { MODELS } from "@noma/shared";
+import { getAgentModel } from "./model-config.js";
 
 export type AcpSmokeReport = {
   ok: boolean;
@@ -49,7 +50,7 @@ export async function runAcpSmoke(options: SmokeOptions = {}): Promise<AcpSmokeR
   const serverUrl = normalizeUrl(
     options.serverUrl ?? process.env.NOMA_SERVER_URL ?? "http://127.0.0.1:3677"
   );
-  const model = options.model ?? process.env.NOMA_ACP_SMOKE_MODEL ?? MODELS[0].id;
+  const model = options.model ?? getAgentModel();
   const cwd = path.resolve(
     options.cwd ?? process.env.NOMA_WORKSPACE_DIR ?? path.join(app.getAppPath(), "../..")
   );

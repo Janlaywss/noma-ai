@@ -2,7 +2,7 @@ import { Buffer } from "node:buffer";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { withLocalUser, type LocalUserEnv } from "@/middleware/local-user";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getDb } from "@/db/index";
 
 const GOOGLE_SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
@@ -24,21 +24,8 @@ type OAuthState = {
 
 const OAUTH_STATE_MAX_AGE_MS = 30 * 60 * 1000;
 
-/**
- * OAuth flow for connectors that use external identity providers.
- *
- * Currently supports Gmail (Google OAuth2). The flow:
- *   1. GET /connectors/gmail/oauth — returns the Google consent URL
- *   2. Google redirects to GET /connectors/gmail/oauth/callback?code=…
- *   3. Server exchanges code for tokens, stores in connector_configs,
- *      renders a small HTML page that notifies the opener and closes.
- */
 const connectorsOAuth = new Hono<LocalUserEnv>();
 
-// Init endpoint uses the configured local user id as OAuth state. Apply the
-// local user context to THIS path only, never with `*`, because
-// `/gmail/oauth/callback` lives under the same prefix and must stay callable
-// by Google.
 connectorsOAuth.get("/gmail/oauth", withLocalUser, async (c) => {
   const env = getGoogleEnv();
   if (!env) return c.text("Google OAuth not configured", 503);
@@ -60,10 +47,6 @@ connectorsOAuth.get("/gmail/oauth", withLocalUser, async (c) => {
   return c.json({ url });
 });
 
-/**
- * OAuth callback — public because Google redirects here. We identify the
- * local user from the `state` param that was set during the initiation step.
- */
 connectorsOAuth.get("/gmail/oauth/callback", async (c) => {
   const env = getGoogleEnv();
   if (!env) return c.text("Google OAuth not configured", 503);
@@ -120,63 +103,41 @@ connectorsOAuth.get("/gmail/oauth/callback", async (c) => {
     }
   } catch {}
 
-  const admin = supabaseAdmin();
-
-  const config = {
+  const db = getDb();
+  const config = JSON.stringify({
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token ?? null,
     expires_at: Date.now() + tokens.expires_in * 1000,
     email,
-  };
+  });
 
-  const { error: dbError } = await admin
-    .from("connector_configs")
-    .upsert(
-      {
-        user_id: userId,
-        connector_name: "gmail",
-        config,
-        enabled: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id,connector_name" }
-    );
-
-  if (dbError) {
-    console.error("[gmail/oauth] db upsert failed:", dbError.message);
-    return c.html(oauthResultPage(false, "Failed to save credentials"));
-  }
+  db.prepare(
+    `INSERT INTO connector_configs (user_id, connector_name, config, enabled, updated_at)
+     VALUES (?, ?, ?, 1, ?)
+     ON CONFLICT(user_id, connector_name)
+     DO UPDATE SET config = excluded.config, enabled = excluded.enabled, updated_at = excluded.updated_at`
+  ).run(userId, "gmail", config, new Date().toISOString());
 
   return c.html(oauthResultPage(true));
 });
 
-/**
- * Server-side token refresh proxy. The desktop / worker call this when an
- * access_token expires or 401s. The client_secret stays here — neither the
- * Electron main process nor the utility worker needs to ship with it.
- *
- * The new access_token is also written into `connector_storage` so any
- * other process reading via `/api/connectors/:name/storage/:key` (the
- * worker on its next poll, the desktop main on its next tool call) sees
- * the fresh value without an explicit refetch.
- */
 connectorsOAuth.post("/gmail/oauth/refresh", withLocalUser, async (c) => {
   const env = getGoogleEnv();
   if (!env) return c.text("Google OAuth not configured", 503);
 
   const userId = c.get("userId");
-  const supabase = c.get("supabase");
+  const db = c.get("db");
 
-  const { data: row, error: readErr } = await supabase
-    .from("connector_configs")
-    .select("config")
-    .eq("user_id", userId)
-    .eq("connector_name", "gmail")
-    .maybeSingle();
-  if (readErr) return c.text(readErr.message, 500);
+  const row = db
+    .prepare(
+      "SELECT config FROM connector_configs WHERE user_id = ? AND connector_name = ?"
+    )
+    .get(userId, "gmail") as { config: string } | undefined;
 
-  const config = (row?.config ?? {}) as { refresh_token?: string | null };
-  if (!config.refresh_token) {
+  const config = row
+    ? (JSON.parse(row.config) as { refresh_token?: string | null })
+    : null;
+  if (!config?.refresh_token) {
     return c.text("Gmail not authorized — no refresh_token on file", 404);
   }
 
@@ -201,35 +162,16 @@ connectorsOAuth.post("/gmail/oauth/refresh", withLocalUser, async (c) => {
     expires_in: number;
   };
   const expires_at = Date.now() + tokens.expires_in * 1000;
-  const updatedAt = new Date().toISOString();
+  const now = new Date().toISOString();
 
-  // Persist for other readers. Two upserts because the table is keyed on
-  // (user_id, connector_name, key); a single bulk upsert with mixed keys
-  // works too, but two clear writes are easier to reason about.
-  const writes = await supabase.from("connector_storage").upsert(
-    [
-      {
-        user_id: userId,
-        connector_name: "gmail",
-        key: "access_token",
-        value: tokens.access_token,
-        updated_at: updatedAt,
-      },
-      {
-        user_id: userId,
-        connector_name: "gmail",
-        key: "expires_at",
-        value: String(expires_at),
-        updated_at: updatedAt,
-      },
-    ],
-    { onConflict: "user_id,connector_name,key" }
+  const upsertStorage = db.prepare(
+    `INSERT INTO connector_storage (user_id, connector_name, key, value, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(user_id, connector_name, key)
+     DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
   );
-  if (writes.error) {
-    console.error("[gmail/oauth/refresh] storage write failed:", writes.error.message);
-    // Token is still usable by the caller even if persistence failed; the
-    // storage write is a cache, not the source of truth.
-  }
+  upsertStorage.run(userId, "gmail", "access_token", tokens.access_token, now);
+  upsertStorage.run(userId, "gmail", "expires_at", String(expires_at), now);
 
   return c.json({ access_token: tokens.access_token, expires_at });
 });

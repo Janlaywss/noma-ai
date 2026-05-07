@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { useState, useEffect, useCallback } from "react";
-import { Select, Button, Checkbox } from "@noma/ui";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Select, Button, Checkbox, Input } from "@noma/ui";
 import { useI18n, type Locale } from "../i18n";
 import { useTheme, type ThemeMode } from "../theme";
 import { useChat } from "../store/chat";
@@ -395,10 +395,96 @@ function SettingsContent() {
         </SettingsRow>
       </SettingsGroup>
 
+      <ModelSection />
+
       <DataSection />
     </div>
   );
 }
+
+// ── Model setting input ─────────────────────────────────
+
+function ModelInput({
+  dbKey,
+  placeholder,
+}: {
+  dbKey: string;
+  placeholder: string;
+}) {
+  const { t } = useI18n();
+  const [value, setValue] = useState("");
+  const [saved, setSaved] = useState(false);
+  const loaded = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    window.noma?.db.settings.get(dbKey).then((v) => {
+      if (v) setValue(v);
+      loaded.current = true;
+    });
+  }, [dbKey]);
+
+  const persist = useCallback(
+    (next: string) => {
+      setValue(next);
+      if (!loaded.current) return;
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(async () => {
+        const trimmed = next.trim();
+        if (!trimmed) return;
+        await window.noma?.db.settings.set(dbKey, trimmed);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 1500);
+      }, 600);
+    },
+    [dbKey]
+  );
+
+  return (
+    <div className="row gap-2" style={{ alignItems: "center" }}>
+      <Input
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => persist(e.currentTarget.value)}
+        style={{ maxWidth: 340 }}
+      />
+      {saved && (
+        <span style={{ fontSize: 11, color: "var(--accent)" }}>
+          {t("settings.modelSaved")}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function ModelSection() {
+  const { t } = useI18n();
+
+  return (
+    <SettingsGroup title={t("settings.models")}>
+      <SettingsRow
+        label={t("settings.agentModel")}
+        hint={t("settings.agentModelHint")}
+      >
+        <ModelInput
+          dbKey="model.agent"
+          placeholder={t("settings.modelPlaceholder")}
+        />
+      </SettingsRow>
+      <SettingsRow
+        label={t("settings.eventModel")}
+        hint={t("settings.eventModelHint")}
+      >
+        <ModelInput
+          dbKey="model.event"
+          placeholder={t("settings.modelPlaceholder")}
+        />
+      </SettingsRow>
+    </SettingsGroup>
+  );
+}
+
+// ── Data section ────────────────────────────────────────
 
 function DataSection() {
   const { t } = useI18n();

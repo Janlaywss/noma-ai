@@ -10,6 +10,7 @@ import { registerTaskHandlers } from "./main/db/tasks.js";
 import { registerSessionHandlers } from "./main/db/sessions.js";
 import { initTaskManager } from "./main/task-manager.js";
 import { registerConnectorConfigHandlers } from "./main/db/connector-config.js";
+import { registerSettingsHandlers } from "./main/db/settings.js";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
@@ -92,6 +93,9 @@ registerSessionHandlers();
 
 // Register connector config handlers (OAuth + storage sync)
 registerConnectorConfigHandlers();
+
+// Register settings handlers
+registerSettingsHandlers();
 
 app.whenReady().then(async () => {
   createWindow();

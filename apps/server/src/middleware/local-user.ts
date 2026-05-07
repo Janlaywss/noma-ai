@@ -1,32 +1,20 @@
 import { Hono, type MiddlewareHandler } from "hono";
-import { supabaseAdmin } from "@/lib/supabase/admin";
-
-type LocalSupabase = ReturnType<typeof supabaseAdmin>;
+import Database from "better-sqlite3";
+import { getDb } from "@/db/index";
 
 export type LocalUserEnv = {
   Variables: {
     userId: string;
-    supabase: LocalSupabase;
+    db: Database.Database;
   };
 };
 
-/**
- * Local-only user context for routes that operate on user-owned data.
- *
- * Login/signup and request-time user authentication have been removed. The
- * server now runs against one configured local user id and scopes all admin
- * Supabase queries with that id manually.
- *
- * Set `NOMA_LOCAL_USER_ID` for a stable local UUID. The fallback keeps local
- * smoke and type-only flows from crashing.
- */
 export const withLocalUser: MiddlewareHandler<LocalUserEnv> = async (c, next) => {
   c.set("userId", localUserId());
-  c.set("supabase", supabaseAdmin());
+  c.set("db", getDb());
   await next();
 };
 
-/** Must be a valid UUID — Supabase columns are typed uuid. */
 function localUserId(): string {
   return process.env.NOMA_LOCAL_USER_ID?.trim() || "00000000-0000-0000-0000-000000000000";
 }

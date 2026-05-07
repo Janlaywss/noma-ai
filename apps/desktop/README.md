@@ -50,6 +50,17 @@ desktop
 
 桌面端不保存完整 ACP 会话正文副本。
 
+## 模型配置
+
+模型通过 **设置 → 模型** 页面配置，存储在本地 SQLite `settings` 表中。支持的字段：
+
+| 设置键 | 说明 |
+|--------|------|
+| `model.agent` | 主对话 Agent 模型（OpenRouter 模型 ID） |
+| `model.event` | 事件批量分析模型（OpenRouter 模型 ID） |
+
+也可以通过 `.env` 中的 `NOMA_AGENT_MODEL` / `NOMA_EVENT_MODEL` 设置。优先级：设置页 > `.env`。未配置时使用相关功能会报错。
+
 ## 服务端复用
 
 登录注册和用户鉴权已移除。桌面端启动后直接进入本地模式；Agent 会话、任务、事件和连接器运行状态仍保存在本地 SQLite。
@@ -92,9 +103,10 @@ pnpm --filter @noma/desktop smoke:acp
 ```bash
 NOMA_ACP_SMOKE_SERVER_PORT=3679
 NOMA_ACP_SMOKE_CDP_PORT=9339
-NOMA_ACP_SMOKE_MODEL=google/gemini-3.1-flash-lite-preview
 NOMA_ACP_SMOKE_PROMPT='请只回复 NOMA_ACP_SMOKE_OK，不要解释，不要调用工具。'
 ```
+
+Smoke 测试使用设置页中配置的 Agent 模型。
 
 ## 验收重点
 

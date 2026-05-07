@@ -1,5 +1,21 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import net from "node:net";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.resolve(__dirname, "../.env");
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq);
+    if (!(key in process.env)) process.env[key] = trimmed.slice(eq + 1);
+  }
+}
 
 const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const explicitUrl = process.env.VITE_DEV_SERVER_URL;
@@ -51,7 +67,7 @@ try {
   ]);
   console.log(`[desktop] waiting for Vite at ${url}`);
   await waitForServer();
-  const electron = run(["exec", "electron", "."], {
+  const electron = run(["exec", "electron", ".", "--remote-debugging-port=9222"], {
     VITE_DEV_SERVER_URL: url,
     // Server manages its own ngrok tunnel now; desktop just needs the address.
     NOMA_SERVER_URL: process.env.NOMA_SERVER_URL ?? "http://localhost:3677",

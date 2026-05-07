@@ -1,29 +1,19 @@
 import { localUserRouter } from "@/middleware/local-user";
 import { fanOutToChannels } from "@/lib/channels/outbound";
 
-/**
- * Server-owned notification sink. The local `notify` tool POSTs here
- * because:
- *   - notifications live in cloud Supabase (user sees them across
- *     devices) and
- *   - `alert`-level notifications fan out to IM channels whose tokens
- *     never touch the desktop.
- */
 const notifications = localUserRouter();
 
 type Level = "info" | "nudge" | "alert";
 
 notifications.get("/", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 100), 500);
-  const { data, error } = await c
-    .get("supabase")
-    .from("notifications")
-    .select("*")
-    .eq("user_id", c.get("userId"))
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error) return c.text(error.message, 500);
-  return c.json(data ?? []);
+  const db = c.get("db");
+  const rows = db
+    .prepare(
+      "SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ?"
+    )
+    .all(c.get("userId"), limit) as Array<Record<string, unknown>>;
+  return c.json(rows.map(parseNotificationRow));
 });
 
 notifications.post("/", async (c) => {
@@ -35,22 +25,18 @@ notifications.post("/", async (c) => {
   if (!body?.message) return c.text("missing message", 400);
   const level: Level = body.level ?? "info";
   const userId = c.get("userId");
+  const db = c.get("db");
 
-  const { data, error } = await c
-    .get("supabase")
-    .from("notifications")
-    .insert({
-      user_id: userId,
-      level,
-      message: body.message,
-      meta: body.meta ?? null,
-    })
-    .select("*")
-    .single();
-  if (error) return c.text(error.message, 500);
+  const info = db
+    .prepare(
+      "INSERT INTO notifications (user_id, level, message, meta) VALUES (?, ?, ?, ?)"
+    )
+    .run(userId, level, body.message, JSON.stringify(body.meta ?? null));
 
-  // Only `alert` pierces the user's attention via IM. Nudges/info stay
-  // in-app so we don't desensitize the escalation signal.
+  const row = db
+    .prepare("SELECT * FROM notifications WHERE rowid = ?")
+    .get(info.lastInsertRowid) as Record<string, unknown>;
+
   if (level === "alert") {
     try {
       await fanOutToChannels(userId, body.message);
@@ -59,18 +45,23 @@ notifications.post("/", async (c) => {
     }
   }
 
-  return c.json(data, 201);
+  return c.json(parseNotificationRow(row), 201);
 });
 
 notifications.patch("/:id/read", async (c) => {
-  const { error } = await c
-    .get("supabase")
-    .from("notifications")
-    .update({ read: true })
-    .eq("user_id", c.get("userId"))
-    .eq("id", c.req.param("id"));
-  if (error) return c.text(error.message, 500);
+  const db = c.get("db");
+  db.prepare(
+    "UPDATE notifications SET read = 1 WHERE user_id = ? AND id = ?"
+  ).run(c.get("userId"), c.req.param("id"));
   return c.body(null, 204);
 });
+
+function parseNotificationRow(r: Record<string, unknown>) {
+  return {
+    ...r,
+    meta: typeof r.meta === "string" ? JSON.parse(r.meta) : r.meta ?? null,
+    read: r.read === 1 || r.read === true,
+  };
+}
 
 export default notifications;

@@ -175,6 +175,16 @@ export function registerSessionHandlers(): void {
       }
     ) => {
       const db = getDb();
+      // Ensure session exists (auto-create if missing to prevent FK failures
+      // from race conditions or stale session IDs after data resets)
+      const exists = db
+        .prepare("SELECT 1 FROM chat_sessions WHERE id = ?")
+        .get(input.sessionId);
+      if (!exists) {
+        db.prepare(
+          "INSERT INTO chat_sessions (id) VALUES (?)"
+        ).run(input.sessionId);
+      }
       db.prepare(
         `INSERT INTO chat_messages (id, session_id, role, content, segments, tool_calls)
          VALUES (?, ?, ?, ?, ?, ?)`
